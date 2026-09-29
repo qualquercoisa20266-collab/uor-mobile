@@ -37,8 +37,7 @@ const STARTING_ARMIES = {2:40,3:35,4:30,5:25,6:20};
 const CARD_SYMBOLS = ['espada','castelo','cavalo','aviao'];
 const TRADE_VALUES = [4,6,8,10,12,15];
 const AIR = 'aviao';
-const GAME_OVER_TTL_MS = 10*60*1000;
-const KICK_RETURN_GRACE_MS = 10*60*1000; // kick normal: prazo p/ a sala esperar o jogador antes de fechar se só sobrar IA   // sala de partida encerrada some sozinha
+const GAME_OVER_TTL_MS = 10*60*1000;   // sala de partida encerrada some sozinha
 const TURN_IDLE_MS = 120*1000;         // inatividade máxima na vez
 const SETUP_IDLE_MS = 180*1000;        // inatividade máxima na distribuição inicial
 function stateFor(state,uid){
@@ -640,7 +639,7 @@ export class UORRoom {
   const pending=active.filter(p=>
     (!p.abandoned&&Number(p.reconnectUntil||0)>now()) ||
     (p.kickActive&&Number(p.kickUntil||0)>now()) ||
-    (p.connectionStatus==='kicked'&&!p.kickActive&&Number(p.reconnectUntil||0)===0&&now()-Number(p.disconnectAt||0)<KICK_RETURN_GRACE_MS)
+    (p.connectionStatus==='kicked'&&!p.kickActive&&Number(p.reconnectUntil||0)===0)
   );
   if(pending.length)return false;
   const rid=this.room.id;this.broadcast({type:'room_relay',roomId:rid,payload:{type:'match_closed',reason:'A partida foi encerrada automaticamente porque todos os generais ficaram sob controle da IA e o período de reconexão terminou.'}});
