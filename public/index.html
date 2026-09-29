@@ -45,15 +45,15 @@
   .screen{ position:relative; z-index:2; width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
   .hidden{display:none !important;}
 
-  #connStatus{ position:fixed; top:14px; right:14px; z-index:60; display:flex; align-items:center; gap:8px;
-    background:rgba(10,9,8,0.85); border:1px solid var(--line); padding:7px 12px 7px 10px; border-radius:22px;
-    font-family:'JetBrains Mono', monospace; font-size:0.68rem; letter-spacing:0.02em; backdrop-filter:blur(6px);
-    box-shadow:0 8px 24px -10px rgba(0,0,0,0.7); transition:border-color 0.3s; max-width:min(70vw, 320px); }
+  #connStatus{ position:fixed; top:7px; right:7px; z-index:60; display:flex; align-items:center; gap:5px;
+    background:rgba(10,9,8,0.88); border:1px solid var(--line); padding:4px 7px 4px 6px; border-radius:14px;
+    font-family:'JetBrains Mono', monospace; font-size:0.55rem; letter-spacing:0.01em; backdrop-filter:blur(6px);
+    box-shadow:0 6px 18px -10px rgba(0,0,0,0.7); transition:border-color 0.3s; max-width:min(48vw, 220px); }
   #connStatus.online{ border-color:rgba(63,174,90,0.4); }
   #connStatus.offline{ border-color:rgba(225,74,63,0.5); }
   #connStatus.connecting{ border-color:rgba(201,162,75,0.5); }
-  .conn-dot{ width:8px; height:8px; border-radius:50%; background:var(--ok); box-shadow:0 0 10px 2px var(--ok);
-    flex:0 0 8px; animation:dotPulse 1.8s ease-in-out infinite; }
+  .conn-dot{ width:6px; height:6px; border-radius:50%; background:var(--ok); box-shadow:0 0 8px 1px var(--ok);
+    flex:0 0 6px; animation:dotPulse 1.8s ease-in-out infinite; }
   #connStatus.offline .conn-dot{ background:var(--crimson-bright); box-shadow:0 0 10px 2px var(--crimson-bright); animation:dotBlink 0.9s steps(2) infinite; }
   #connStatus.connecting .conn-dot{ background:var(--brass-bright); box-shadow:0 0 10px 2px var(--brass-bright); animation:dotBlink 0.9s steps(2) infinite; }
   @keyframes dotPulse{ 0%,100%{opacity:1;} 50%{opacity:0.45;} }
@@ -62,8 +62,8 @@
   #connStatus.online #connLabel{ color:#a9d9b2; }
   #connStatus.offline #connLabel{ color:#f2b0aa; }
   #connStatus.connecting #connLabel{ color:#f0d078; }
-  #reconnectBtn{ display:none; margin-left:2px; background:transparent; border:1px solid var(--crimson-bright);
-    color:#f2b0aa; font-family:'JetBrains Mono', monospace; font-size:0.65rem; padding:3px 8px; border-radius:12px; cursor:pointer; flex:0 0 auto; }
+  #reconnectBtn{ display:none; margin-left:1px; background:transparent; border:1px solid var(--crimson-bright);
+    color:#f2b0aa; font-family:'JetBrains Mono', monospace; font-size:0.56rem; padding:2px 6px; border-radius:10px; cursor:pointer; flex:0 0 auto; }
   #connStatus.offline #reconnectBtn{ display:inline-block; }
   #reconnectBtn.spinning{ animation:spin 0.6s linear; }
   @keyframes spin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
@@ -161,7 +161,7 @@
   .lobby-header .brand-sub{text-align:left; font-size:0.8rem;}
   .who-am-i{ display:flex; align-items:center; gap:8px; font-family:'JetBrains Mono', monospace; font-size:0.78rem; color:var(--parchment-dim);
     background:rgba(0,0,0,0.3); border:1px solid var(--line); padding:5px 12px 5px 5px; border-radius:22px; }
-  .who-avatar{ width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+  .who-avatar{ width:26px; height:26px; border-radius:50%; display:none; align-items:center; justify-content:center; }
   .who-avatar svg{ width:70%; height:70%; }
 
   .my-room-bar{ display:none; flex-direction:column; gap:10px; background:rgba(63,174,90,0.10);
@@ -714,6 +714,7 @@
   }
 
   .floating-modal{ position:relative; }
+  .modal-x,.profile-close{ position:relative; z-index:25; pointer-events:auto; touch-action:manipulation; }
   .modal-x{ position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; border:1px solid var(--brass); background:rgba(0,0,0,.35); color:var(--brass-bright); font-size:1.2rem; cursor:pointer; }
 
   #gameScreen .map-wrap{ z-index:0; }
@@ -1038,7 +1039,10 @@
   .turn-alert-actions .btn{min-width:150px;}
   @media(max-width:760px){.online-presence-btn{padding:6px 8px}.online-player-actions{grid-template-columns:1fr}.role-power-actions{grid-template-columns:1fr}.online-players-modal{width:calc(100vw - 24px);}.online-players-list{max-height:62dvh;}}
   .profile-refresh{float:right;border:1px solid rgba(201,162,75,.18);background:rgba(201,162,75,.06);color:#cdbd98;border-radius:8px;padding:6px 9px;font:600 .58rem 'JetBrains Mono',monospace;cursor:pointer;}
-  .profile-loading{opacity:.55;pointer-events:none;}
+  .profile-refresh:disabled{cursor:wait;opacity:.95;}
+  .profile-refresh.is-refreshing{border-color:rgba(240,208,120,.55);box-shadow:0 0 0 1px rgba(240,208,120,.08),0 0 12px rgba(201,162,75,.10);}
+  .refresh-spinner{display:inline-block;animation:spin .7s linear infinite;transform-origin:center;}
+  .profile-loading{opacity:.55;pointer-events:none;transition:opacity .15s ease;}
   .lobby-account-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end;}
   .lobby-account-btn{border:1px solid rgba(201,162,75,.2);background:linear-gradient(180deg,rgba(201,162,75,.09),rgba(0,0,0,.18));color:#cdbd98;border-radius:9px;padding:8px 10px;font:700 .58rem 'JetBrains Mono',monospace;cursor:pointer;}
   .lobby-account-btn:hover{border-color:rgba(240,208,120,.5);color:#f0d078;}
@@ -1069,7 +1073,7 @@
       <section class="account-panel">
         <div id="accountWelcomeView">
           <div class="account-heading">Bem-vindo ao UOR</div>
-          <div class="account-note">Entre na sala de comando ou crie sua identidade de General.</div>
+          <div class="account-note">Entre na sala de comando ou crie sua identidade de Jogador.</div>
           <div style="display:grid;gap:10px;margin-top:18px;">
             <button class="btn account-submit" id="accountStartCreateBtn" type="button">CRIAR CONTA</button>
             <button class="account-tab" id="accountStartLoginBtn" type="button" style="width:100%;">ENTRAR</button>
@@ -1082,9 +1086,9 @@
         </div>
 
         <div id="accountCreateView" class="hidden">
-          <div class="account-heading">Novo General</div>
+          <div class="account-heading">Novo Jogador</div>
           <div class="account-note">Escolha com cuidado: o nick será sua identidade permanente no UOR.</div>
-          <div class="account-field"><label for="accountNick">Nick permanente</label><input id="accountNick" maxlength="18" autocomplete="nickname" placeholder="Ex.: General Aurelio"></div>
+          <div class="account-field"><label for="accountNick">Nick permanente</label><input id="accountNick" maxlength="18" autocomplete="nickname" placeholder="Ex.: Aurelio"></div>
           <div class="account-hint">3–18 caracteres • será exibido nas partidas e futuramente no ranking.</div>
           <div class="account-field"><label for="accountLogin">Login</label><input id="accountLogin" maxlength="24" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Seu login de acesso"></div>
           <div class="account-hint">4–24 caracteres • letras, números, ponto, hífen e sublinhado.</div>
@@ -1093,13 +1097,13 @@
           <div class="account-hint">Mínimo de 8 caracteres • use maiúscula, minúscula, número e símbolo.</div>
           <div class="account-field account-password"><label for="accountPassword2">Confirmar senha</label><input id="accountPassword2" type="password" maxlength="72" autocomplete="new-password" placeholder="Repita sua senha"><button class="account-showpass" type="button" data-pass="accountPassword2">mostrar</button></div>
           <div class="account-error" id="accountCreateError"></div>
-          <button class="btn account-submit" id="accountCreateBtn" type="button">Criar minha conta de General</button>
+          <button class="btn account-submit" id="accountCreateBtn" type="button">Criar minha conta de Jogador</button>
           <div class="account-legal">Sua senha nunca é salva em texto aberto. A autenticação será feita pelo servidor.</div>
         </div>
 
         <div id="accountLoginView" class="hidden">
           <div class="account-heading">Retornar ao comando</div>
-          <div class="account-note">Entre com seu login e senha para continuar como seu General.</div>
+          <div class="account-note">Entre com seu login e senha para continuar como seu Jogador.</div>
           <div class="account-field"><label for="accountLoginIn">Login</label><input id="accountLoginIn" maxlength="24" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Seu login"></div>
           <div class="account-field account-password"><label for="accountPasswordIn">Senha</label><input id="accountPasswordIn" type="password" maxlength="72" autocomplete="current-password" placeholder="Sua senha"><button class="account-showpass" type="button" data-pass="accountPasswordIn">mostrar</button></div>
           <div class="account-error" id="accountLoginError"></div>
@@ -1127,10 +1131,10 @@
     <div class="card">
       <div class="crest-row"><div class="crest-line"></div><span class="crest-glyph">⚔</span><div class="crest-line right"></div></div>
       <div class="brand-title">UOR</div>
-      <div class="brand-sub">Sala de Comando &mdash; identifique-se, general</div>
+      <div class="brand-sub">Sala de Comando &mdash; identifique-se, jogador</div>
 
       <label class="field-label first">Nome de guerra</label>
-      <input type="text" id="nameInput" placeholder="Ex: General Aurelio" maxlength="18" autocomplete="off">
+      <input type="text" id="nameInput" placeholder="Ex: Aurelio" maxlength="18" autocomplete="off">
       <div class="waiting-note" style="margin-top:14px;">Você escolhe a cor do seu exército ao criar ou entrar numa sala.</div>
 
       <div class="err-msg" id="idError"></div>
@@ -1160,7 +1164,7 @@
           <button class="lobby-account-btn hidden role-manage-btn admin-manage-btn" id="adminPanelBtn" title="Gerenciamento ADMIN">👑 ADMIN</button>
           <button class="lobby-account-btn" id="logoutBtn" title="Encerrar sessão">⏻ SAIR DA CONTA</button>
           <div class="who-am-i">
-            <div class="who-avatar" id="whoAvatar"></div>
+            <div class="who-avatar" id="whoAvatar" aria-hidden="true"></div>
             <span id="whoName">—</span>
           </div>
           <div id="globalControls" aria-label="Controles do jogo">
@@ -1181,7 +1185,7 @@
         </div>
         <div class="my-room-members" id="myRoomMembers"></div>
         <div class="room-ready-list" id="roomReadyList"></div>
-        <div class="private-room-note" id="privateRoomStatus">Aguardando outro general entrar...</div>
+        <div class="private-room-note" id="privateRoomStatus">Aguardando outro jogador entrar...</div>
         <div class="private-room-chat">
           <div class="private-room-chat-title">Chat da Sala</div>
           <div class="chat-log" id="roomChatLog"></div>
@@ -1190,7 +1194,7 @@
             <button class="send-btn" id="roomChatSendBtn">➤</button>
           </div>
         </div>
-        <button class="btn" id="startGameBtn" disabled>Aguardando generais...</button>
+        <button class="btn" id="startGameBtn" disabled>Aguardando jogadores...</button>
       </div>
 
       <div class="lobby-body">
@@ -1436,7 +1440,7 @@
       <button class="modal-x" id="onlinePlayerActionsCloseBtn" aria-label="Fechar">×</button>
       <div class="online-player-action-head">
         <span class="presence-dot"></span>
-        <div><div class="profile-kicker">General conectado</div><h3 id="onlinePlayerActionNick">—</h3></div>
+        <div><div class="profile-kicker">Jogador conectado</div><h3 id="onlinePlayerActionNick">—</h3></div>
       </div>
       <div class="online-player-actions">
         <button class="online-action-btn" data-online-action="profile">🎖 <span>Ver perfil</span></button>
@@ -1509,7 +1513,7 @@
       <div class="profile-head drag-handle">
         <div class="profile-identity">
           <div class="profile-rank-medal" id="profileHeaderIcon">♜</div>
-          <div><div class="profile-kicker">Dossiê permanente do General</div><div class="profile-nick" id="profileHeaderNick">—</div><div class="profile-rank-name" id="profileHeaderRank">Soldado</div></div>
+          <div><div class="profile-kicker">Dossiê permanente do Jogador</div><div class="profile-nick" id="profileHeaderNick">—</div><div class="profile-rank-name" id="profileHeaderRank">Soldado</div></div>
         </div>
         <button class="profile-close" id="profileCloseBtn" aria-label="Fechar">×</button>
       </div>
@@ -1530,7 +1534,7 @@
             <div class="profile-card">
               <div class="profile-card-title">Classificação global</div>
               <div class="rank-points" id="profilePosition">#—</div>
-              <div class="rank-next">posição entre os generais registrados</div>
+              <div class="rank-next">posição entre os jogadores registrados</div>
               <div style="margin-top:13px" class="stat-grid"><div class="stat-box"><div class="stat-value" id="statWinRate">0%</div><div class="stat-label">Aproveitamento</div></div><div class="stat-box"><div class="stat-value" id="statStreak">0</div><div class="stat-label">Sequência</div></div></div>
             </div>
           </div>
@@ -1552,7 +1556,7 @@
     <div class="modal floating-modal">
       <button class="modal-x" data-close-modal="createModal" aria-label="Fechar">×</button>
       <h3 class="drag-handle">Fundar nova sala</h3>
-      <div class="private-room-note" style="margin:2px 0 12px;">A sala comporta até 6 generais. Escolha apenas a cor do seu exército.</div>
+      <div class="private-room-note" style="margin:2px 0 12px;">A sala comporta até 6 jogadores. Escolha apenas a cor do seu exército.</div>
       <label class="field-label first">Escolha seu exército</label>
       <div class="soldier-grid" id="createColorGrid"></div>
       <div class="modal-actions">
@@ -1757,7 +1761,7 @@
   }
   function markOnline(){ reconnectAttempts=0; clearTimeout(gracePeriodTimer); setConnUI('online','Servidor UOR conectado'); }
   function closeLobbyPresence(){if(lobbyPresenceReconnectTimer){clearTimeout(lobbyPresenceReconnectTimer);lobbyPresenceReconnectTimer=null;}if(lobbyPresenceWs){try{lobbyPresenceWs.close()}catch{}lobbyPresenceWs=null;}}
-  function renderOnlinePlayers(){const list=$('#onlinePlayersList'),count=onlinePlayers.length;const countEl=$('#onlinePlayersCount'),modalCount=$('#onlinePlayersModalCount');if(countEl)countEl.textContent=String(count);if(modalCount)modalCount.textContent=String(count);if(!list)return;if(!count){list.innerHTML='<div class="profile-empty">Nenhum outro General conectado agora.</div>';return;}list.innerHTML=onlinePlayers.map(p=>`<button class="online-player-row" type="button" data-online-player-id="${escapeHtml(p.id)}"><span class="presence-dot"></span><span class="online-player-avatar">${rankBadgeHTML(p.rankId||'soldado','22')}</span><span class="online-player-name-wrap"><span class="online-player-name">${escapeHtml(p.nick)}${roleBadgeAfterNameHTML(p.role,'18')}</span></span><span class="online-player-status">online</span></button>`).join('');list.querySelectorAll('[data-online-player-id]').forEach(btn=>btn.addEventListener('click',()=>{const p=onlinePlayers.find(x=>x.id===btn.dataset.onlinePlayerId);if(p)openOnlinePlayerActions(p);}));}
+  function renderOnlinePlayers(){const list=$('#onlinePlayersList'),count=onlinePlayers.length;const countEl=$('#onlinePlayersCount'),modalCount=$('#onlinePlayersModalCount');if(countEl)countEl.textContent=String(count);if(modalCount)modalCount.textContent=String(count);if(!list)return;if(!count){list.innerHTML='<div class="profile-empty">Nenhum outro Jogador conectado agora.</div>';return;}list.innerHTML=onlinePlayers.map(p=>`<button class="online-player-row" type="button" data-online-player-id="${escapeHtml(p.id)}"><span class="presence-dot"></span><span class="online-player-avatar">${rankBadgeHTML(p.rankId||'soldado','22')}</span><span class="online-player-name-wrap"><span class="online-player-name">${escapeHtml(p.nick)}${roleBadgeAfterNameHTML(p.role,'18')}</span></span><span class="online-player-status">online</span></button>`).join('');list.querySelectorAll('[data-online-player-id]').forEach(btn=>btn.addEventListener('click',()=>{const p=onlinePlayers.find(x=>x.id===btn.dataset.onlinePlayerId);if(p)openOnlinePlayerActions(p);}));}
   function handlePresenceSnapshot(users){onlinePlayers=(Array.isArray(users)?users:[]).filter(p=>p&&p.id).sort((a,b)=>a.nick.localeCompare(b.nick,'pt-BR',{sensitivity:'base'}));renderOnlinePlayers();}
   function connectLobbyPresence(){if(!authUser)return;closeLobbyPresence();markOnline();const ws=new WebSocket(serverWsUrl('/ws/lobby'));lobbyPresenceWs=ws;ws.onopen=()=>{markOnline();};ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='presence_snapshot')handlePresenceSnapshot(m.users||[]);else if(m.type==='kick_notice')handleKickNotice(m);}catch{}};ws.onerror=()=>{};ws.onclose=()=>{if(lobbyPresenceWs!==ws)return;lobbyPresenceWs=null;if(authUser&&!forcedLogout&&!lobbyPresenceReconnectTimer){lobbyPresenceReconnectTimer=setTimeout(()=>{lobbyPresenceReconnectTimer=null;if(authUser&&!forcedLogout)connectLobbyPresence();},1200);}};}
 
@@ -1895,7 +1899,7 @@
     }catch(e){
       if(error) error.textContent=e.message||'Não foi possível criar a conta.';
     }finally{
-      if(btn){btn.disabled=false;btn.textContent='Criar minha conta de General';}
+      if(btn){btn.disabled=false;btn.textContent='Criar minha conta de Jogador';}
     }
   }
   async function loginAccount(){
@@ -1979,7 +1983,7 @@
     else if(msg.type==='room_relay'){if(msg.roomId===myRoomId||msg.roomId===spectatorRoomId)handleRoomRelayPayload(msg.roomId,msg.payload);}
     else if(msg.type==='reconnect_ok'){showToast('Sessão restaurada pelo servidor.');}
     else if(msg.type==='kick_notice'){handleKickNotice(msg);}
-    else if(msg.type==='join_error'){showToast(msg.reason==='full'?'Sala cheia, general.':'Essa sala não existe mais.');}
+    else if(msg.type==='join_error'){showToast(msg.reason==='full'?'Sala cheia, jogador.':'Essa sala não existe mais.');}
   }
 
   function sendToDirectoryOrSelf(msg){
@@ -2008,11 +2012,11 @@
   function renderRoomList(){
     const list=$('#roomList');if(!list)return;const arr=Object.values(rooms).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));$('#roomCount').textContent=`(${arr.length})`;
     if(!arr.length){list.innerHTML=`<div class="empty-state"><div class="glyph">⚔</div><p>Nenhuma sala aberta no momento. Funde a primeira campanha e aguarde reforços.</p></div>`;return;}
-    list.innerHTML='';arr.forEach(room=>{const full=room.players.length>=room.maxPlayers,mine=room.id===myRoomId,participant=room.players.find(p=>p.id===me.id),reconnect=!!(room.gameActive&&participant&&participant.reconnectAvailable);const card=document.createElement('div');card.className='room-card'+(full&&!mine?' full':'')+(mine?' mine':'');const av='';card.innerHTML=`<div class="room-info"><div class="room-name">${escapeHtml(room.name)}${mine?' (sua sala)':''}</div><div class="room-meta"><span class="${full?'seats-full':'seats-open'}">${room.players.length}/${room.maxPlayers} generais</span>${room.gameActive?'<span>⚔ partida em andamento</span>':''}</div></div><div class="room-players">${av}</div>${reconnect?'<button class="btn btn-sm" data-reconnect="1" style="margin-left:8px;white-space:nowrap;">↻ Reconectar</button>':''}`;if(reconnect){card.querySelector('[data-reconnect]').addEventListener('click',e=>{e.stopPropagation();tryJoinRoom(room.id,participant.color,true);});}else card.addEventListener('click',()=>openJoinModal(room.id));list.appendChild(card);});
+    list.innerHTML='';arr.forEach(room=>{const full=room.players.length>=room.maxPlayers,mine=room.id===myRoomId,participant=room.players.find(p=>p.id===me.id),reconnect=!!(room.gameActive&&participant&&participant.reconnectAvailable);const card=document.createElement('div');card.className='room-card'+(full&&!mine?' full':'')+(mine?' mine':'');const av='';card.innerHTML=`<div class="room-info"><div class="room-name">${escapeHtml(room.name)}${mine?' (sua sala)':''}</div><div class="room-meta"><span class="${full?'seats-full':'seats-open'}">${room.players.length}/${room.maxPlayers} jogadores</span>${room.gameActive?'<span>⚔ partida em andamento</span>':''}</div></div><div class="room-players">${av}</div>${reconnect?'<button class="btn btn-sm" data-reconnect="1" style="margin-left:8px;white-space:nowrap;">↻ Reconectar</button>':''}`;if(reconnect){card.querySelector('[data-reconnect]').addEventListener('click',e=>{e.stopPropagation();tryJoinRoom(room.id,participant.color,true);});}else card.addEventListener('click',()=>openJoinModal(room.id));list.appendChild(card);});
   }
   let joinModalRoomId=null,joinModalColor=null;
   function refreshJoinColorGrid(){const room=rooms[joinModalRoomId],taken=room?room.players.map(p=>p.color):[];renderColorPicker('joinColorGrid',taken,joinModalColor,c=>{joinModalColor=c;refreshJoinColorGrid();});}
-  function openJoinModal(roomId){const room=rooms[roomId];if(!room)return;if(room.id===myRoomId){showToast(`Você já está em "${room.name}".`);return;}const mine=room.players.find(p=>p.id===me.id);if(room.gameActive){if(mine){tryJoinRoom(room.id,mine.color,true);}return;}if(room.players.length>=room.maxPlayers){showToast('Sala cheia, general.');return;}joinModalRoomId=roomId;joinModalColor=firstAvailableColor(room.players.map(p=>p.color));$('#joinRoomName').textContent=room.name;$('#joinModalError').textContent='';refreshJoinColorGrid();$('#joinModal').classList.remove('hidden');}
+  function openJoinModal(roomId){const room=rooms[roomId];if(!room)return;if(room.id===myRoomId){showToast(`Você já está em "${room.name}".`);return;}const mine=room.players.find(p=>p.id===me.id);if(room.gameActive){if(mine){tryJoinRoom(room.id,mine.color,true);}return;}if(room.players.length>=room.maxPlayers){showToast('Sala cheia, jogador.');return;}joinModalRoomId=roomId;joinModalColor=firstAvailableColor(room.players.map(p=>p.color));$('#joinRoomName').textContent=room.name;$('#joinModalError').textContent='';refreshJoinColorGrid();$('#joinModal').classList.remove('hidden');}
   function closeJoinModal(){$('#joinModal').classList.add('hidden');joinModalRoomId=null;}
   async function confirmJoin(){const room=rooms[joinModalRoomId];if(!room){closeJoinModal();return;}try{await tryJoinRoom(room.id,joinModalColor);closeJoinModal();}catch(e){$('#joinModalError').textContent=e.message;}}
   async function reconnectToActiveMatch(match){
@@ -2089,16 +2093,16 @@
       const isHost=p.id===room.hostConnId,ready=p.ready===true;
       const action=!isHost&&p.id===me.id?`<button class="btn btn-sm room-ready-btn" id="myReadyBtn">${ready?'✓ PRONTO':'PRONTO'}</button>`:'';
       const state=isHost?'<span class="room-ready-state">👑 DONO DA SALA</span>':(ready?'<span class="room-ready-state ready">✓ PRONTO</span>':'<span class="room-ready-state">aguardando</span>');
-      return `<div class="room-ready-row"><div class="room-ready-who">${rankBadgeHTML(p.rankId||'soldado','22')}<div class="room-ready-name">${escapeHtml(p.name)}${roleBadgeAfterNameHTML(p.role,'18')}${isHost?'<span class="room-ready-role">General / Dono</span>':''}</div></div><div>${action||state}</div></div>`;
+      return `<div class="room-ready-row"><div class="room-ready-who">${rankBadgeHTML(p.rankId||'soldado','22')}<div class="room-ready-name">${escapeHtml(p.name)}${roleBadgeAfterNameHTML(p.role,'18')}${isHost?'<span class="room-ready-role">Jogador / Dono</span>':''}</div></div><div>${action||state}</div></div>`;
     }).join('');
     const myReadyBtn=$('#myReadyBtn');
     if(myReadyBtn)myReadyBtn.addEventListener('click',()=>{sendRoomRelay({type:'room_ready'});});
-    $('#privateRoomStatus').textContent=players.length<2?'Aguardando outro general entrar...':(canStart?'Todos os generais estão prontos. Você pode iniciar a batalha.':host?`Aguardando os demais generais ficarem prontos. (${players.length}/6)`: 'Marque PRONTO para entrar na batalha.');
+    $('#privateRoomStatus').textContent=players.length<2?'Aguardando outro jogador entrar...':(canStart?'Todos os jogadores estão prontos. Você pode iniciar a batalha.':host?`Aguardando os demais jogadores ficarem prontos. (${players.length}/6)`: 'Marque PRONTO para entrar na batalha.');
     renderRoomChat();
     const startBtn=$('#startGameBtn');
     startBtn.style.display='block';
     startBtn.disabled=!canStart;
-    startBtn.textContent=host?(canStart?'⚔ Iniciar Batalha':'Aguardando generais ficarem PRONTOS...'):'Aguardando o dono iniciar a batalha...';
+    startBtn.textContent=host?(canStart?'⚔ Iniciar Batalha':'Aguardando jogadores ficarem PRONTOS...'):'Aguardando o dono iniciar a batalha...';
     renderRoomList();
   }
 
@@ -4111,7 +4115,7 @@ function rankBadgeHTML(rankId,size='24'){const src=RANK_BADGE_IMAGES[rankId]||RA
     if(!data)return;
     profileCache.data=data;
     const s=data.stats||{}, r=data.rank||{};
-    $('#profileHeaderNick').innerHTML=`${escapeHtml(data.user?.nick||me.name||'General')}${roleBadgeAfterNameHTML(data.user?.role,'24')}`;
+    $('#profileHeaderNick').innerHTML=`${escapeHtml(data.user?.nick||me.name||'Jogador')}${roleBadgeAfterNameHTML(data.user?.role,'24')}`;
     $('#profileHeaderRank').textContent=r.name||'Soldado';
     $('#profileHeaderIcon').innerHTML=rankBadgeHTML(r.id,'48'); $('#profileRankIcon').innerHTML=rankBadgeHTML(r.id,'34');
     $('#profilePoints').textContent=Number(s.points||0).toLocaleString('pt-BR');
@@ -4128,8 +4132,32 @@ function rankBadgeHTML(rankId,size='24'){const src=RANK_BADGE_IMAGES[rankId]||RA
     $('#achievementGrid').innerHTML=defs.map(a=>`<div class="achievement ${unlocked.has(a[0])?'unlocked':''}"><div class="achievement-icon">${a[1]}</div><div class="achievement-name">${a[2]}</div><div class="achievement-desc">${a[3]}</div></div>`).join('');
   }
   async function loadProfile(){ profileCache.viewingUserId=null; const data=await authApi('/api/profile',{method:'GET',headers:{}}); renderProfile(data); return data; }
-  async function loadRanking(){ const data=await authApi('/api/ranking?limit=50',{method:'GET',headers:{}}); profileCache.ranking=data; const list=$('#rankingList'); if(!data.ranking?.length){list.innerHTML='<div class="profile-empty">Ainda não há generais classificados.</div>';return data;} list.innerHTML=data.ranking.map(r=>`<div class="rank-row ${r.id===me.id?'me':''}"><div class="rank-person"><div class="rank-person-name">${rankBadgeHTML(r.rank.id,'24')}<strong>${escapeHtml(r.nick)}${roleBadgeAfterNameHTML(r.role,'20')}</strong></div></div><div class="rank-wins">${Number(r.wins||0)}</div><div class="rank-score">${Number(r.points||0).toLocaleString('pt-BR')}</div></div>`).join(''); return data; }
-  async function loadHistory(){ const data=await authApi(profileCache.viewingUserId ? `/api/public-history?userId=${encodeURIComponent(profileCache.viewingUserId)}&limit=20` : '/api/history?limit=50',{method:'GET',headers:{}}); profileCache.history=data; const list=$('#historyList'); if(!data.history?.length){list.innerHTML='<div class="profile-empty">Nenhuma batalha concluída ainda.</div>';return data;} list.innerHTML=data.history.map(h=>{const cls=h.result,delta=Number(h.pointsDelta||0);const opp=(h.opponentNames||[]).join(', ')||'Campanha';return `<div class="history-row"><div class="history-result ${cls}">${resultLabel(cls)}<br><span style="opacity:.65">${formatHistoryDate(h.finishedAt)}</span></div><div class="history-main"><strong>${escapeHtml(h.roomName)}</strong><span>${escapeHtml(opp)} • ${h.playersCount} generais • patente ${escapeHtml(h.rankAfter)}</span></div><div class="history-points ${delta>=0?'plus':'minus'}">${delta>=0?'+':''}${delta} pts</div></div>`;}).join(''); return data; }
+  async function loadRanking(){ const data=await authApi('/api/ranking?limit=50',{method:'GET',headers:{}}); profileCache.ranking=data; const list=$('#rankingList'); if(!data.ranking?.length){list.innerHTML='<div class="profile-empty">Ainda não há jogadores classificados.</div>';return data;} list.innerHTML=data.ranking.map(r=>`<div class="rank-row ${r.id===me.id?'me':''}"><div class="rank-person"><div class="rank-person-name">${rankBadgeHTML(r.rank.id,'24')}<strong>${escapeHtml(r.nick)}${roleBadgeAfterNameHTML(r.role,'20')}</strong></div></div><div class="rank-wins">${Number(r.wins||0)}</div><div class="rank-score">${Number(r.points||0).toLocaleString('pt-BR')}</div></div>`).join(''); return data; }
+  async function loadHistory(){ const data=await authApi(profileCache.viewingUserId ? `/api/public-history?userId=${encodeURIComponent(profileCache.viewingUserId)}&limit=20` : '/api/history?limit=50',{method:'GET',headers:{},cache:'no-store'}); profileCache.history=data; const list=$('#historyList'); if(!data.history?.length){list.innerHTML='<div class="profile-empty">Nenhuma batalha concluída ainda.</div>';return data;} list.innerHTML=data.history.map(h=>{const cls=h.result,delta=Number(h.pointsDelta||0);const opp=(h.opponentNames||[]).join(', ')||'Campanha';return `<div class="history-row"><div class="history-result ${cls}">${resultLabel(cls)}<br><span style="opacity:.65">${formatHistoryDate(h.finishedAt)}</span></div><div class="history-main"><strong>${escapeHtml(h.roomName)}</strong><span>${escapeHtml(opp)} • ${h.playersCount} jogadores • patente ${escapeHtml(h.rankAfter)}</span></div><div class="history-points ${delta>=0?'plus':'minus'}">${delta>=0?'+':''}${delta} pts</div></div>`;}).join(''); return data; }
+
+  async function refreshHistoryVisual(){
+    const btn=$('#refreshHistoryBtn'), list=$('#historyList');
+    if(!btn || btn.dataset.refreshing==='1') return;
+    const original=btn.innerHTML || '↻ Atualizar';
+    btn.dataset.refreshing='1';
+    btn.disabled=true;
+    btn.classList.add('is-refreshing');
+    btn.setAttribute('aria-busy','true');
+    btn.innerHTML='<span class="refresh-spinner" aria-hidden="true">↻</span> Atualizando...';
+    if(list) list.classList.add('profile-loading');
+    // Dá ao navegador um frame para pintar o estado visual antes do pedido de rede.
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    try{ await loadHistory(); }
+    catch(e){ showToast(e.message); }
+    finally{
+      btn.disabled=false;
+      btn.classList.remove('is-refreshing');
+      btn.removeAttribute('aria-busy');
+      btn.dataset.refreshing='0';
+      btn.innerHTML=original;
+      if(list) list.classList.remove('profile-loading');
+    }
+  }
   function switchProfileTab(tab){
     document.querySelectorAll('.profile-tab').forEach(b=>b.classList.toggle('active',b.dataset.profileTab===tab));
     $('#profileOverviewView').classList.toggle('hidden',tab!=='overview'); $('#profileRankingView').classList.toggle('hidden',tab!=='ranking'); $('#profileHistoryView').classList.toggle('hidden',tab!=='history');
@@ -4161,7 +4189,7 @@ function rankBadgeHTML(rankId,size='24'){const src=RANK_BADGE_IMAGES[rankId]||RA
         const result=await authApi(endpoint,{method:'POST',body:JSON.stringify(payload)});if(result.system){chatLog.push(result.system);renderChat(true);}showToast(successText);refreshLobbyData();
       }catch(e){showToast(e.message);}return;
     }
-    $('#onlinePlayerActionNick').innerHTML=`${escapeHtml(selectedOnlinePlayer.nick||'General')}${roleBadgeAfterNameHTML(selectedOnlinePlayer.role,'24')}`;$('#onlinePlayersModal').classList.add('hidden');
+    $('#onlinePlayerActionNick').innerHTML=`${escapeHtml(selectedOnlinePlayer.nick||'Jogador')}${roleBadgeAfterNameHTML(selectedOnlinePlayer.role,'24')}`;$('#onlinePlayersModal').classList.add('hidden');
     const muteBtn=$('#onlineMuteBtn');if(muteBtn){muteBtn.style.display=isModerator()&&selectedOnlinePlayer.id!==me.id?'flex':'none';muteBtn.dataset.onlineAction='mute';muteBtn.querySelector('span').textContent='Silenciar 30 min';if(isModerator()&&selectedOnlinePlayer.id!==me.id){try{const st=await authApi(`/api/moderation/status?userId=${encodeURIComponent(selectedOnlinePlayer.id)}`,{method:'GET'});if(st.muted){muteBtn.dataset.onlineAction='unmute';muteBtn.querySelector('span').textContent='Remover silêncio';}}catch(e){}}}$('#onlinePlayerActionsModal').classList.remove('hidden');
   }
   function closeOnlinePlayerActions(){$('#onlinePlayerActionsModal')?.classList.add('hidden');selectedOnlinePlayer=null;}
@@ -4211,7 +4239,7 @@ function rankBadgeHTML(rankId,size='24'){const src=RANK_BADGE_IMAGES[rankId]||RA
       await refreshLobbyData();
       const active=Object.values(rooms).filter(r=>r&&r.gameActive).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
       if(!active.length){list.innerHTML='<div class="profile-empty">Nenhuma partida em andamento agora.</div>';return;}
-      list.innerHTML=active.map(r=>`<button class="watch-match-row" type="button" data-watch-room-id="${escapeHtml(r.id)}"><span class="watch-match-main"><strong>${escapeHtml(r.name||'Partida UOR')}</strong><span>${Number(r.players?.length||0)}/${Number(r.maxPlayers||6)} generais • partida em andamento</span></span><span class="watch-match-live">AO VIVO</span></button>`).join('');
+      list.innerHTML=active.map(r=>`<button class="watch-match-row" type="button" data-watch-room-id="${escapeHtml(r.id)}"><span class="watch-match-main"><strong>${escapeHtml(r.name||'Partida UOR')}</strong><span>${Number(r.players?.length||0)}/${Number(r.maxPlayers||6)} jogadores • partida em andamento</span></span><span class="watch-match-live">AO VIVO</span></button>`).join('');
       list.querySelectorAll('[data-watch-room-id]').forEach(btn=>btn.addEventListener('click',()=>startSpectatorWatching(btn.dataset.watchRoomId)));
     }catch(e){list.innerHTML=`<div class="profile-empty">${escapeHtml(e.message||'Não foi possível carregar as partidas.')}</div>`;}
   }
@@ -4516,11 +4544,9 @@ function rankBadgeHTML(rankId,size='24'){const src=RANK_BADGE_IMAGES[rankId]||RA
     $('#openCreateModal').addEventListener('click', openCreateModal);
     $('#cancelCreateBtn').addEventListener('click', closeCreateModal);
     $('#confirmCreateBtn').addEventListener('click', confirmCreate);
-    $('#createModal').addEventListener('click', e=>{ if(e.target.id === 'createModal') closeCreateModal(); });
 
     $('#cancelJoinBtn').addEventListener('click', closeJoinModal);
     $('#confirmJoinBtn').addEventListener('click', confirmJoin);
-    $('#joinModal').addEventListener('click', e=>{ if(e.target.id === 'joinModal') closeJoinModal(); });
     document.querySelectorAll('[data-close-modal]').forEach(btn=>btn.addEventListener('click', ()=> $('#'+btn.dataset.closeModal).classList.add('hidden')));
 
     const openModerationPlayers=()=>{updateRoleUI();renderOnlinePlayers();$('#onlinePlayersModal').classList.remove('hidden');};
@@ -4530,26 +4556,20 @@ function rankBadgeHTML(rankId,size='24'){const src=RANK_BADGE_IMAGES[rankId]||RA
     $('#rolePowersCloseBtn')?.addEventListener('click', ()=>{rolePowerAction=null;$('#rolePowersModal').classList.add('hidden');});
     $('#kickNoticeCloseBtn')?.addEventListener('click', closeKickNotice);
     $('#kickNoticeOkBtn')?.addEventListener('click', closeKickNotice);
-    $('#rolePowersModal')?.addEventListener('click', e=>{if(e.target.id==='rolePowersModal'){rolePowerAction=null;$('#rolePowersModal').classList.add('hidden');}});
     document.querySelectorAll('[data-role-power]').forEach(btn=>btn.addEventListener('click',()=>beginRolePowerAction(btn.dataset.rolePower)));
     $('#onlinePlayersCloseBtn').addEventListener('click', ()=>{rolePowerAction=null;$('#onlinePlayersModal').classList.add('hidden');});
-    $('#onlinePlayersModal').addEventListener('click', e=>{if(e.target.id==='onlinePlayersModal')$('#onlinePlayersModal').classList.add('hidden');});
     $('#watchMatchesCloseBtn')?.addEventListener('click', ()=>$('#watchMatchesModal').classList.add('hidden'));
-    $('#watchMatchesModal')?.addEventListener('click', e=>{if(e.target.id==='watchMatchesModal')$('#watchMatchesModal').classList.add('hidden');});
     $('#onlinePlayerActionsCloseBtn').addEventListener('click', closeOnlinePlayerActions);
-    $('#onlinePlayerActionsModal').addEventListener('click', e=>{if(e.target.id==='onlinePlayerActionsModal')closeOnlinePlayerActions();});
     document.querySelectorAll('.online-action-btn').forEach(btn=>btn.addEventListener('click',()=>chooseOnlinePlayerAction(btn.dataset.onlineAction)));
     $('#adminUsersCloseBtn')?.addEventListener('click', ()=>$('#adminUsersModal').classList.add('hidden'));
-    $('#adminUsersModal')?.addEventListener('click', e=>{if(e.target.id==='adminUsersModal')$('#adminUsersModal').classList.add('hidden');});
     $('#adminUsersSearchBtn')?.addEventListener('click', loadAdminUsers);
     $('#adminUsersSearch')?.addEventListener('keydown', e=>{if(e.key==='Enter')loadAdminUsers();});
     $('#openProfileBtn').addEventListener('click', ()=>openProfile('overview'));
     $('#openRankingBtn').addEventListener('click', ()=>openProfile('ranking'));
     $('#profileCloseBtn').addEventListener('click', ()=>$('#profileModal').classList.add('hidden'));
-    $('#profileModal').addEventListener('click', e=>{ if(e.target.id==='profileModal') $('#profileModal').classList.add('hidden'); });
     document.querySelectorAll('.profile-tab').forEach(btn=>btn.addEventListener('click',()=>switchProfileTab(btn.dataset.profileTab)));
     $('#refreshRankingBtn').addEventListener('click', ()=>loadRanking().catch(e=>showToast(e.message)));
-    $('#refreshHistoryBtn').addEventListener('click', ()=>loadHistory().catch(e=>showToast(e.message)));
+    $('#refreshHistoryBtn').addEventListener('click', refreshHistoryVisual);
 
     $('#leaveMyRoomBtn').addEventListener('click', leaveMyRoom);
     $('#startGameBtn').addEventListener('click', startGameClicked);
@@ -4583,8 +4603,6 @@ function rankBadgeHTML(rankId,size='24'){const src=RANK_BADGE_IMAGES[rankId]||RA
     $('#confirmAirAttackBtn').addEventListener('click', confirmAirAttack);
     $('#cancelAirAttackBtn').addEventListener('click', closeAirAttackConfirm);
     $('#airAttackConfirmXBtn').addEventListener('click', closeAirAttackConfirm);
-    $('#airAttackConfirmModal').addEventListener('click', e=>{ if(e.target.id==='airAttackConfirmModal') closeAirAttackConfirm(); });
-    $('#exchangeModal').addEventListener('click', e=>{ if(e.target.id === 'exchangeModal') closeExchangeModal(); });
 
     // Controles retráteis do tabuleiro — somente apresentação/UI.
     $('#actionToggleBtn').addEventListener('click', ()=>togglePanel('turnHudPanel'));
