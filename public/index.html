@@ -1584,6 +1584,7 @@
         <button class="online-action-btn" data-online-action="history">📜 <span>Histórico</span></button>
         <button class="online-action-btn" data-online-action="stats">📊 <span>Estatísticas</span></button>
         <button class="online-action-btn" data-online-action="achievements">🏅 <span>Conquistas</span></button>
+        <button class="online-action-btn" id="personalMuteBtn" data-online-action="personal-mute">🔇 <span>Mutar para mim</span></button>
         <button class="online-action-btn moderation-action" id="onlineMuteBtn" data-online-action="mute">🔇 <span>Silenciar 30 min</span></button>
       </div>
     </div>
@@ -1854,6 +1855,13 @@
   ============================================================ */
   let me = { id: getOrCreatePlayerId(), name:'', color: COLORS[0].id, role:'PLAYER' };
   let authUser = null;
+  let personalMuteOwner=null,personalMuted=new Set(),personalMutePlayers=[],personalMuteRevision=0;
+  function loadPersonalMutes(){if(personalMuteOwner===me.id)return;personalMuteOwner=me.id;personalMutePlayers=[];try{const ids=JSON.parse(localStorage.getItem('uor_chat_mutes_'+me.id)||'[]');personalMuted=new Set(Array.isArray(ids)?ids.filter(id=>typeof id==='string'):[]);}catch{personalMuted=new Set();}if(authUser?.id===me.id){const owner=me.id,revision=personalMuteRevision;fetchJson('/api/chat/mutes').then(d=>{if(me.id===owner&&personalMuteOwner===owner&&personalMuteRevision===revision)applyPersonalMutes(d.ids,d.players);}).catch(()=>{});}}
+  function applyPersonalMutes(ids,players){personalMuteRevision++;if(Array.isArray(players))personalMutePlayers=players;personalMuted=new Set((Array.isArray(ids)?ids:[]).filter(id=>typeof id==='string'));try{localStorage.setItem('uor_chat_mutes_'+me.id,JSON.stringify([...personalMuted]));}catch{}renderChat();renderRoomChat();if($('#matchChatLog'))renderMatchChat();if(gameState)renderGeneralsPanel();renderOnlinePlayers();}
+  function isPersonallyMuted(m){loadPersonalMutes();return !!m&&!m.system&&personalMuted.has(m.userId||m.id||m.connId);}
+  async function togglePersonalMute(id){loadPersonalMutes();if(!id||id===me.id)return;const muted=!personalMuted.has(id);try{const d=await fetchJson('/api/chat/mutes',{method:'POST',body:JSON.stringify({userId:id,muted})});applyPersonalMutes(d.ids,d.players);showToast(muted?'Jogador mutado para você.':'Jogador desmutado para você.');}catch(e){showToast(e.message);}}
+  function addPersonalMuteButton(row,m){if(m.system||!m.userId||m.userId===me.id)return;const btn=document.createElement('button');btn.type='button';btn.textContent='🔇';btn.title='Mutar este jogador para mim';btn.setAttribute('aria-label',btn.title);btn.style.cssText='margin-left:6px;cursor:pointer;background:transparent;color:inherit;border:0';btn.onclick=()=>togglePersonalMute(m.userId);row.appendChild(btn);}
+
   let authBooted = false;
   // Sessão só vale enquanto a aba/app estiver aberto: fechou → precisa logar de novo.
   const TAB_SESSION_KEY = 'uor_tab_session';
@@ -1916,17 +1924,17 @@
   function closeLobbyPresence(){if(lobbyPresenceReconnectTimer){clearTimeout(lobbyPresenceReconnectTimer);lobbyPresenceReconnectTimer=null;}if(lobbyPresenceWs){try{lobbyPresenceWs.close()}catch{}lobbyPresenceWs=null;}}
   function renderOnlinePlayers(){
     const list=$('#onlinePlayersList');if(!list)return;
-    let visible=onlinePlayers.slice();
+    loadPersonalMutes();let visible=onlinePlayers.slice();for(const p of personalMutePlayers)if(personalMuted.has(p.id)&&!visible.some(v=>v.id===p.id))visible.push({...p,mutedOffline:true});
     if(rolePowerAction==='mute'||rolePowerAction==='kick'||String(rolePowerAction||'').startsWith('kick:')){
       visible=visible.filter(p=>p.id!==me.id && !(normalizeClientRole(me.role)==='STAFF'&&normalizeClientRole(p.role)==='ADMIN'));
     }
     const count=visible.length,countEl=$('#onlinePlayersCount'),modalCount=$('#onlinePlayersModalCount');if(countEl)countEl.textContent=String(onlinePlayers.length);if(modalCount)modalCount.textContent=String(count);
     if(!count){list.innerHTML=`<div class="profile-empty">${rolePowerAction?'Nenhum jogador elegível para esta ação agora.':'Nenhum outro Jogador conectado agora.'}</div>`;return;}
-    list.innerHTML=visible.map(p=>`<button class="online-player-row" type="button" data-online-player-id="${escapeHtml(p.id)}"><span class="presence-dot"></span><span class="online-player-avatar">${rankBadgeHTML(p.rankId||'soldado','22')}</span><span class="online-player-name-wrap"><span class="online-player-name">${escapeHtml(p.nick)}</span></span><span class="online-player-status">online</span></button>`).join('');
-    list.querySelectorAll('[data-online-player-id]').forEach(btn=>btn.addEventListener('click',()=>{const p=onlinePlayers.find(x=>x.id===btn.dataset.onlinePlayerId);if(p)openOnlinePlayerActions(p);}));
+    list.innerHTML=visible.map(p=>`<button class="online-player-row" type="button" data-online-player-id="${escapeHtml(p.id)}"><span class="presence-dot"></span><span class="online-player-avatar">${rankBadgeHTML(p.rankId||'soldado','22')}</span><span class="online-player-name-wrap"><span class="online-player-name">${escapeHtml(p.nick)}</span></span><span class="online-player-status">${p.mutedOffline?'mutado · offline':'online'}</span></button>`).join('');
+    list.querySelectorAll('[data-online-player-id]').forEach(btn=>btn.addEventListener('click',()=>{const p=visible.find(x=>x.id===btn.dataset.onlinePlayerId);if(p)openOnlinePlayerActions(p);}));
   }
   function handlePresenceSnapshot(users){onlinePlayers=(Array.isArray(users)?users:[]).filter(p=>p&&p.id).sort((a,b)=>a.nick.localeCompare(b.nick,'pt-BR',{sensitivity:'base'}));renderOnlinePlayers();}
-  function connectLobbyPresence(){if(!authUser)return;closeLobbyPresence();markOnline();const ws=new WebSocket(serverWsUrl('/ws/lobby'));lobbyPresenceWs=ws;ws.onopen=()=>{markOnline();};ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='presence_snapshot')handlePresenceSnapshot(m.users||[]);else if(m.type==='kick_notice')handleKickNotice(m);}catch{}};ws.onerror=()=>{};ws.onclose=()=>{if(lobbyPresenceWs!==ws)return;lobbyPresenceWs=null;if(authUser&&!forcedLogout&&!lobbyPresenceReconnectTimer){lobbyPresenceReconnectTimer=setTimeout(()=>{lobbyPresenceReconnectTimer=null;if(authUser&&!forcedLogout)connectLobbyPresence();},1200);}};}
+  function connectLobbyPresence(){if(!authUser)return;closeLobbyPresence();markOnline();const ws=new WebSocket(serverWsUrl('/ws/lobby'));lobbyPresenceWs=ws;let heartbeat;ws.onopen=()=>{if(lobbyPresenceWs!==ws)return;markOnline();heartbeat=setInterval(()=>{if(lobbyPresenceWs===ws&&ws.readyState===WebSocket.OPEN)ws.send('{}');else clearInterval(heartbeat);},5000);};ws.onmessage=e=>{if(lobbyPresenceWs!==ws)return;try{const m=JSON.parse(e.data);if(m.type==='personal_mutes_updated')applyPersonalMutes(m.ids);else if(m.type==='presence_snapshot')handlePresenceSnapshot(m.users||[]);else if(m.type==='kick_notice')handleKickNotice(m);}catch{}};ws.onerror=()=>{};ws.onclose=e=>{clearInterval(heartbeat);if(lobbyPresenceWs!==ws)return;lobbyPresenceWs=null;if(e.code===4003){handleKickNotice({sessionExpired:true,reason:'Sua sessão expirou ou foi encerrada. Faça login novamente.'});return;}if(authUser&&!forcedLogout&&!lobbyPresenceReconnectTimer){lobbyPresenceReconnectTimer=setTimeout(()=>{lobbyPresenceReconnectTimer=null;if(authUser&&!forcedLogout)connectLobbyPresence();},1200);}};}
 
   function markConnecting(label){ setConnUI('connecting',label||'Conectando ao servidor...'); }
   function markOfflineWithGrace(){ clearTimeout(gracePeriodTimer); markConnecting('Reconectando ao servidor...'); gracePeriodTimer=setTimeout(()=>setConnUI('offline','Sem conexão — tentando novamente'),3500); }
@@ -1968,10 +1976,10 @@
     markConnecting(roomConnectionSpectator?'Entrando como espectador...':'Entrando na batalha...');
     const suffix=roomConnectionSpectator?'?spectator=1':'';
     const ws=new WebSocket(serverWsUrl('/ws/rooms/'+encodeURIComponent(roomId)+suffix)); roomWs=ws;
-    ws.onopen=()=>{markOnline();showToast(roomConnectionSpectator?'Conectado como espectador.':'Conectado à sala de batalha.');if(roomHeartbeatTimer)clearInterval(roomHeartbeatTimer);roomHeartbeatTimer=setInterval(()=>{try{if(roomWs===ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'heartbeat'}));}catch{}},5000);};
-    ws.onmessage=e=>{try{handleClientData(JSON.parse(e.data))}catch{}};
-    ws.onclose=()=>{if(forcedLogout)return;if(myRoomId===roomId || spectatorRoomId===roomId){markOfflineWithGrace();scheduleRoomReconnect(roomId);}};
-    ws.onerror=()=>{markOfflineWithGrace();};
+    ws.onopen=()=>{if(roomWs!==ws)return;markOnline();showToast(roomConnectionSpectator?'Conectado como espectador.':'Conectado à sala de batalha.');if(roomHeartbeatTimer)clearInterval(roomHeartbeatTimer);roomHeartbeatTimer=setInterval(()=>{try{if(roomWs===ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'heartbeat'}));}catch{}},5000);};
+    ws.onmessage=e=>{if(roomWs!==ws)return;try{handleClientData(JSON.parse(e.data))}catch{}};
+    ws.onclose=e=>{if(roomWs!==ws||forcedLogout)return;if(e.code===4001){if(roomHeartbeatTimer)clearInterval(roomHeartbeatTimer);roomHeartbeatTimer=null;roomWs=null;setConnUI('offline','Sala aberta em outra aba');showToast('A sala foi aberta em outra aba. Use reconectar para voltar aqui.');return;}if(e.code===4003){handleKickNotice({sessionExpired:true,reason:'Sua sessão expirou ou foi encerrada. Faça login novamente.'});return;}if(myRoomId===roomId || spectatorRoomId===roomId){markOfflineWithGrace();scheduleRoomReconnect(roomId);}};
+    ws.onerror=()=>{if(roomWs===ws)markOfflineWithGrace();};
   }
   function scheduleRoomReconnect(roomId){
     if(reconnectLoopTimer)return; reconnectAttempts=0;
@@ -2123,13 +2131,14 @@
 
   function formatKickClock(ms){let sec=Math.max(0,Math.ceil(Number(ms||0)/1000));const h=Math.floor(sec/3600);sec%=3600;const m=Math.floor(sec/60);sec%=60;return h>0?`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}
   function closeKickNotice(){if(kickNoticeTimer){clearInterval(kickNoticeTimer);kickNoticeTimer=null;}$('#kickNoticeModal')?.classList.add('hidden');}
-  function showKickNotice(msg){const mins=Number(msg?.minutes||0),expiresAt=Number(msg?.expiresAt||0);$('#kickNoticeTitle').textContent=mins>0?'⏱ Kick temporário':'👢 Kick';$('#kickNoticeText').textContent=mins>0?`Você foi removido da sessão por ${msg?.actorRole||'membro da equipe'} ${msg?.actorNick||''}. Kick de ${mins} minutos.`:`Você foi removido da sessão por ${msg?.actorRole||'membro da equipe'} ${msg?.actorNick||''}. Você pode entrar novamente.`;const countdown=$('#kickNoticeCountdown');if(kickNoticeTimer)clearInterval(kickNoticeTimer);if(mins>0&&expiresAt>0){const update=()=>{const left=Math.max(0,expiresAt-Date.now());countdown.textContent=left>0?`Você poderá retornar em ${formatKickClock(left)}.`:'O Kick terminou. Você já pode entrar novamente.';if(left<=0){clearInterval(kickNoticeTimer);kickNoticeTimer=null;}};update();kickNoticeTimer=setInterval(update,1000);}else countdown.textContent='';$('#kickNoticeModal')?.classList.remove('hidden');}
+  function showKickNotice(msg){if(msg?.sessionExpired){if(kickNoticeTimer)clearInterval(kickNoticeTimer);kickNoticeTimer=null;$('#kickNoticeTitle').textContent='Sessão encerrada';$('#kickNoticeText').textContent=msg.reason||'Faça login novamente.';$('#kickNoticeCountdown').textContent='';$('#kickNoticeModal')?.classList.remove('hidden');return;}const mins=Number(msg?.minutes||0),expiresAt=Number(msg?.expiresAt||0);$('#kickNoticeTitle').textContent=mins>0?'⏱ Kick temporário':'👢 Kick';$('#kickNoticeText').textContent=mins>0?`Você foi removido da sessão por ${msg?.actorRole||'membro da equipe'} ${msg?.actorNick||''}. Kick de ${mins} minutos.`:`Você foi removido da sessão por ${msg?.actorRole||'membro da equipe'} ${msg?.actorNick||''}. Você pode entrar novamente.`;const countdown=$('#kickNoticeCountdown');if(kickNoticeTimer)clearInterval(kickNoticeTimer);if(mins>0&&expiresAt>0){const update=()=>{const left=Math.max(0,expiresAt-Date.now());countdown.textContent=left>0?`Você poderá retornar em ${formatKickClock(left)}.`:'O Kick terminou. Você já pode entrar novamente.';if(left<=0){clearInterval(kickNoticeTimer);kickNoticeTimer=null;}};update();kickNoticeTimer=setInterval(update,1000);}else countdown.textContent='';$('#kickNoticeModal')?.classList.remove('hidden');}
   function handleKickNotice(msg){if(forcedLogout&&!authUser)return;forcedLogout=true;closeLobbyPresence();stopLobbyPolling();closeRoomSocket();if(activeReconnectTimer){clearInterval(activeReconnectTimer);activeReconnectTimer=null;}if(generalsAiTimer){clearInterval(generalsAiTimer);generalsAiTimer=null;}myRoomId=null;roomChatLog=[];matchChatLog=[];gameState=null;spectatorMode=false;spectatorRoomId=null;roomConnectionSpectator=false;clearRecoveryCache();clearTabSession();authUser=null;me.role='PLAYER';updateRoleUI();$('#myRoomBar')?.classList.remove('show');showAccountScreen();showKickNotice(msg);setTimeout(()=>{forcedLogout=false;},3000);}
   function handleMatchClosedNotice(reason){const wasSpectator=spectatorMode;forcedLogout=true;myRoomId=null;spectatorRoomId=null;roomConnectionSpectator=false;spectatorMode=false;closeRoomSocket();stopMatchTimer();gameState=null;matchChatLog=[];roomChatLog=[];clearRecoveryCache();$('#gameScreen')?.classList.add('hidden');$('#lobbyScreen')?.classList.remove('hidden');setSpectatorControls(false);updateMyRoomBar();setTimeout(()=>{forcedLogout=false;},2000);showToast(reason||'A partida foi encerrada automaticamente.');if(authUser)refreshLobbyData();if(wasSpectator)$('#watchMatchesModal')?.classList.add('hidden');}
 
   function handleClientData(msg){
     if(!msg||!msg.type)return;
     if(msg.type==='presence_snapshot'){handlePresenceSnapshot(msg.users||[]);}
+    else if(msg.type==='personal_mutes_updated'){applyPersonalMutes(msg.ids);}
     else if(msg.type==='account_data_removed'){const keep=m=>m.userId!==msg.userId&&m.name!==msg.nick;chatLog=chatLog.filter(keep);roomChatLog=roomChatLog.filter(keep);matchChatLog=matchChatLog.filter(keep);renderChat();renderRoomChat();renderMatchChat();}
     else if(msg.type==='role_updated'){me.role=normalizeClientRole(msg.role);if(authUser)authUser.role=me.role;updateRoleUI();refreshLobbyIdentity();showToast(`Seu cargo agora é ${me.role}.`);}
     else if(msg.type==='snapshot'){chatLog=msg.chat||[];rooms={};(msg.rooms||[]).forEach(r=>rooms[r.id]=r);renderChat(true);renderRoomList();}
@@ -2162,7 +2171,7 @@
   }
 
   let roomChatLog=[];
-  function renderRoomChat(forceScroll){const log=$('#roomChatLog');if(!log)return;const near=(log.scrollHeight-log.scrollTop-log.clientHeight)<80;log.innerHTML='';roomChatLog.forEach(m=>{const row=document.createElement('div'),d=new Date(m.ts),time=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');row.className='chat-msg'+(m.system?' system':'');if(m.system)row.innerHTML=`<div class="chat-avatar">·</div><div class="chat-body"><div class="chat-text">${escapeHtml(m.text)} <span class="chat-time">${time}</span></div></div>`;else row.innerHTML=`<div class="chat-body"><span class="chat-name-wrap">${rankBadgeHTML(m.rankId||'soldado','20')}<span class="chat-name">${escapeHtml(m.name)}</span>${roleBadgeAfterNameHTML(m.role,'18')}</span> <span class="chat-text">${escapeHtml(m.text)}</span><span class="chat-time">${time}</span></div>`;log.appendChild(row);});if(near||forceScroll)log.scrollTop=log.scrollHeight;}
+  function renderRoomChat(forceScroll){const log=$('#roomChatLog');if(!log)return;const near=(log.scrollHeight-log.scrollTop-log.clientHeight)<80;log.innerHTML='';roomChatLog.slice(-200).filter(m=>!isPersonallyMuted(m)).forEach(m=>{const row=document.createElement('div'),d=new Date(m.ts),time=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');row.className='chat-msg'+(m.system?' system':'');if(m.system)row.innerHTML=`<div class="chat-avatar">·</div><div class="chat-body"><div class="chat-text">${escapeHtml(m.text)} <span class="chat-time">${time}</span></div></div>`;else row.innerHTML=`<div class="chat-body"><span class="chat-name-wrap">${rankBadgeHTML(m.rankId||'soldado','20')}<span class="chat-name">${escapeHtml(m.name)}</span>${roleBadgeAfterNameHTML(m.role,'18')}</span> <span class="chat-text">${escapeHtml(m.text)}</span><span class="chat-time">${time}</span></div>`;addPersonalMuteButton(row,m);log.appendChild(row);});if(near||forceScroll)log.scrollTop=log.scrollHeight;}
   function sendRoomChat(){const input=$('#roomChatInput'),text=input.value.trim();if(!text||!myRoomId)return;input.value='';sendRoomRelay({type:'room_chat',entry:{text}});}
 
   function renderRoomList(){
@@ -2265,7 +2274,7 @@
 
   async function leaveMyRoom(){if(!myRoomId)return;const rid=myRoomId;clearRecoveryCache();closeRoomSocket();try{await fetchJson(`/api/rooms/${encodeURIComponent(rid)}/leave`,{method:'POST',body:'{}'});}catch{}myRoomId=null;roomChatLog=[];$('#myRoomBar').classList.remove('show');$('#lobbyScreen').classList.remove('in-room');renderRoomChat();refreshLobbyData();}
 
-  function renderChat(forceScroll){const log=$('#chatLog');if(!log)return;const near=(log.scrollHeight-log.scrollTop-log.clientHeight)<80;log.innerHTML='';chatLog.forEach(m=>{const row=document.createElement('div'),d=new Date(m.ts);const time=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');if(m.system){row.className='chat-msg system';row.innerHTML=`<div class="chat-avatar">·</div><div class="chat-body"><div class="chat-text">${escapeHtml(m.text)} <span class="chat-time">${time}</span></div></div>`;}else{row.className='chat-msg';row.innerHTML=`<div class="chat-body"><span class="chat-name-wrap">${rankBadgeHTML(m.rankId||'soldado','20')}<span class="chat-name">${escapeHtml(m.name)}</span>${roleBadgeAfterNameHTML(m.role,'18')}</span> <span class="chat-text">${escapeHtml(m.text)}</span><span class="chat-time">${time}</span></div>`;}log.appendChild(row);});if(near||forceScroll)log.scrollTop=log.scrollHeight;}
+  function renderChat(forceScroll){const log=$('#chatLog');if(!log)return;const near=(log.scrollHeight-log.scrollTop-log.clientHeight)<80;log.innerHTML='';chatLog.slice(-200).filter(m=>!isPersonallyMuted(m)).forEach(m=>{const row=document.createElement('div'),d=new Date(m.ts);const time=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');if(m.system){row.className='chat-msg system';row.innerHTML=`<div class="chat-avatar">·</div><div class="chat-body"><div class="chat-text">${escapeHtml(m.text)} <span class="chat-time">${time}</span></div></div>`;}else{row.className='chat-msg';row.innerHTML=`<div class="chat-body"><span class="chat-name-wrap">${rankBadgeHTML(m.rankId||'soldado','20')}<span class="chat-name">${escapeHtml(m.name)}</span>${roleBadgeAfterNameHTML(m.role,'18')}</span> <span class="chat-text">${escapeHtml(m.text)}</span><span class="chat-time">${time}</span></div>`;}addPersonalMuteButton(row,m);log.appendChild(row);});if(near||forceScroll)log.scrollTop=log.scrollHeight;}
   async function handleSendChatText(text){text=String(text||'').trim();if(!text)return;try{const d=await fetchJson('/api/chat',{method:'POST',body:JSON.stringify({text,color:me.color})});chatLog.push(d.entry);if(chatLog.length>200)chatLog=chatLog.slice(-200);renderChat(true);}catch(e){showToast(e.message);}}
   function handleSendChat(){const input=$('#chatInput'),text=input.value.trim();if(!text)return;input.value='';handleSendChatText(text);}
 
@@ -2943,6 +2952,7 @@
   }
 
   function checkWinner(state){
+    if(state.pendingConquestTransfer)return null;
     const active = state.players.filter(p=>!p.eliminated);
     if(active.length === 1) return active[0].connId;
     for(const p of active){
@@ -3033,8 +3043,8 @@
       else{ renderGame(); }
       checkAndShowVictory();
     } else if(payload.type === 'game_chat'){
-      matchChatLog.push(payload.entry); renderMatchChat();
-      if(payload.entry && payload.entry.name !== me.name){ matchChatUnread++; updateChatNotification(); }
+      matchChatLog.push(payload.entry);matchChatLog=matchChatLog.slice(-200); renderMatchChat();
+      if(payload.entry && !isPersonallyMuted(payload.entry) && payload.entry.userId !== me.id){ matchChatUnread++; updateChatNotification(); }
     } else if(payload.type === 'peer_reconnected'){
       if(spectatorMode) return;
       if(gameState){
@@ -3535,7 +3545,7 @@
   function renderGeneralsPanel(){
     const list = $('#generalsList');
     if(!list || !gameState || !Array.isArray(gameState.players)) return;
-    const html = gameState.players.map(p=>{
+    loadPersonalMutes();const html = gameState.players.map(p=>{
       const owned = TERRITORIES.filter(t=>gameState.territories[t.id] && gameState.territories[t.id].owner===p.connId);
       const armies = owned.reduce((sum,t)=>sum + (gameState.territories[t.id].armies||0),0);
       const ai=!!p.aiControlled;
@@ -3548,10 +3558,10 @@
       const cardSummary=`🃏 ${handCount} · 🔁 ${trades}${lastReward?` · +${lastReward}`:''}${airStored?` · ✈${airStored}`:''}`;
       return `<div class="general-row">
          <div class="general-name" title="${escapeHtml(p.name)}"><span class="general-army-avatar">${avatarHTML(p.color)}</span>${rankBadgeHTML(p.rankId||'soldado','24')}<span>${escapeHtml(p.name)}${p.connId===myConnIdForRoom()?' (você)':''}${roleBadgeAfterNameHTML(p.role,'20')}${aiText?`<span class="general-ai-status${abandoned?' abandoned':''}"><i class="general-ai-dot"></i>${aiText}</span>`:''}</span></div>
-        <div class="general-stats"><strong>${armies}</strong> soldados<br><strong>${owned.length}</strong> países<br><span class="general-card-meta" title="Cartas na mão · trocas realizadas · última recompensa · ataques aéreos guardados">${cardSummary}</span></div>
+        <div class="general-stats">${pid!==me.id?`<button type="button" data-personal-mute="${escapeHtml(pid)}">${personalMuted.has(pid)?'🔊 Desmutar':'🔇 Mutar'}</button><br>`:''}<strong>${armies}</strong> soldados<br><strong>${owned.length}</strong> países<br><span class="general-card-meta" title="Cartas na mão · trocas realizadas · última recompensa · ataques aéreos guardados">${cardSummary}</span></div>
       </div>`;
     }).join('');
-    list.innerHTML = `<div class="generals-list">${html || '<div class="waiting-note">Nenhum jogador na partida.</div>'}</div>`;
+    list.innerHTML = `<div class="generals-list">${html || '<div class="waiting-note">Nenhum jogador na partida.</div>'}</div>`;list.querySelectorAll('[data-personal-mute]').forEach(btn=>btn.onclick=()=>togglePersonalMute(btn.dataset.personalMute));
   }
 
   function playCombatEffects(){
@@ -3625,9 +3635,10 @@
 
     playCombatEffects();
 
-    if(gameState.log.length > lastSeenLogLen){
-      const newLines = gameState.log.slice(lastSeenLogLen);
-      lastSeenLogLen = gameState.log.length;
+    const logOffset=Number(gameState.logOffset||0),logTotal=logOffset+gameState.log.length;
+    if(logTotal > lastSeenLogLen){
+      const newLines = gameState.log.slice(Math.max(0,lastSeenLogLen-logOffset));
+      lastSeenLogLen = logTotal;
       newLines.forEach(line=>{
         if(/^Vez de|eliminado|conquistou território e ganhou uma carta|trocou 3 cartas|Ataque Aéreo/.test(line)) showToast(line);
       });
@@ -4417,7 +4428,7 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
     const icons={soldado:'⌃',cabo:'⌃⌃',sargento:'≡≡≡',tenente:'★★',capitao:'★★★',major:'✦✦✦',tenente_coronel:'✹✹',coronel:'✹✹✹',general:'✦✦✦'};
     return icons[rankId] || '♜';
   }
-  function formatHistoryDate(ts){ if(!ts)return '—'; const d=new Date(Number(ts)*1000); return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'}); }
+  function formatHistoryDate(ts){ if(!ts)return '—'; const n=Number(ts),d=new Date(n<1e12?n*1000:n); return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'}); }
   function resultLabel(result){ return result==='win'?'Vitória':result==='loss'?'Derrota':result==='abandon'?'Abandono':result==='annulled'?'Partida anulada':'Partida anulada'; }
   function renderProfile(data){
     if(!data)return;
@@ -4474,10 +4485,10 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
       }catch(e){showToast(e.message);}return;
     }
     $('#onlinePlayerActionNick').innerHTML=`${escapeHtml(selectedOnlinePlayer.nick||'Jogador')}${roleBadgeAfterNameHTML(selectedOnlinePlayer.role,'24')}`;$('#onlinePlayersModal').classList.add('hidden');
-    const muteBtn=$('#onlineMuteBtn');if(muteBtn){muteBtn.style.display=isModerator()&&selectedOnlinePlayer.id!==me.id?'flex':'none';muteBtn.dataset.onlineAction='mute';muteBtn.querySelector('span').textContent='Silenciar 30 min';if(isModerator()&&selectedOnlinePlayer.id!==me.id){try{const st=await authApi(`/api/moderation/status?userId=${encodeURIComponent(selectedOnlinePlayer.id)}`,{method:'GET'});if(st.muted){muteBtn.dataset.onlineAction='unmute';muteBtn.querySelector('span').textContent='Remover silêncio';}}catch(e){}}}$('#onlinePlayerActionsModal').classList.remove('hidden');
+    loadPersonalMutes();const personalBtn=$('#personalMuteBtn');if(personalBtn){personalBtn.style.display=selectedOnlinePlayer.id===me.id?'none':'flex';personalBtn.querySelector('span').textContent=personalMuted.has(selectedOnlinePlayer.id)?'Desmutar para mim':'Mutar para mim';}const muteBtn=$('#onlineMuteBtn');if(muteBtn){muteBtn.style.display=isModerator()&&selectedOnlinePlayer.id!==me.id?'flex':'none';muteBtn.dataset.onlineAction='mute';muteBtn.querySelector('span').textContent='Silenciar 30 min';if(isModerator()&&selectedOnlinePlayer.id!==me.id){try{const st=await authApi(`/api/moderation/status?userId=${encodeURIComponent(selectedOnlinePlayer.id)}`,{method:'GET'});if(st.muted){muteBtn.dataset.onlineAction='unmute';muteBtn.querySelector('span').textContent='Remover silêncio';}}catch(e){}}}$('#onlinePlayerActionsModal').classList.remove('hidden');
   }
   function closeOnlinePlayerActions(){$('#onlinePlayerActionsModal')?.classList.add('hidden');selectedOnlinePlayer=null;}
-  async function chooseOnlinePlayerAction(action){const p=selectedOnlinePlayer;if(!p)return;if(action==='mute'||action==='unmute'){try{const endpoint=action==='mute'?'/api/moderation/mute':'/api/moderation/unmute';const result=await authApi(endpoint,{method:'POST',body:JSON.stringify({userId:p.id})});if(result.system){chatLog.push(result.system);renderChat(true);}showToast(action==='mute'?`${p.nick} foi silenciado por 30 minutos.`:`Silêncio de ${p.nick} removido.`);closeOnlinePlayerActions();refreshLobbyData();return;}catch(e){showToast(e.message);return;}}closeOnlinePlayerActions();if(action==='history')openPublicProfile(p.id,'history').catch(e=>showToast(e.message));else if(action==='stats')openPublicProfile(p.id,'overview','profileStatsCard').catch(e=>showToast(e.message));else if(action==='achievements')openPublicProfile(p.id,'overview','profileAchievementsCard').catch(e=>showToast(e.message));else openPublicProfile(p.id,'overview').catch(e=>showToast(e.message));}
+  async function chooseOnlinePlayerAction(action){const p=selectedOnlinePlayer;if(!p)return;if(action==='personal-mute'){togglePersonalMute(p.id);closeOnlinePlayerActions();return;}if(action==='mute'||action==='unmute'){try{const endpoint=action==='mute'?'/api/moderation/mute':'/api/moderation/unmute';const result=await authApi(endpoint,{method:'POST',body:JSON.stringify({userId:p.id})});if(result.system){chatLog.push(result.system);renderChat(true);}showToast(action==='mute'?`${p.nick} foi silenciado por 30 minutos.`:`Silêncio de ${p.nick} removido.`);closeOnlinePlayerActions();refreshLobbyData();return;}catch(e){showToast(e.message);return;}}closeOnlinePlayerActions();if(action==='history')openPublicProfile(p.id,'history').catch(e=>showToast(e.message));else if(action==='stats')openPublicProfile(p.id,'overview','profileStatsCard').catch(e=>showToast(e.message));else if(action==='achievements')openPublicProfile(p.id,'overview','profileAchievementsCard').catch(e=>showToast(e.message));else openPublicProfile(p.id,'overview').catch(e=>showToast(e.message));}
 
   async function loadAdminUsers(){
     const list=$('#adminUsersList');if(!list)return;
@@ -4663,11 +4674,11 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
     const log = $('#matchChatLog');
     const wasNearBottom = (log.scrollHeight - log.scrollTop - log.clientHeight) < 80;
     log.innerHTML = '';
-    matchChatLog.forEach(m=>{
+    matchChatLog.slice(-200).filter(m=>!isPersonallyMuted(m)).forEach(m=>{
       const row = document.createElement('div'); row.className = 'chat-msg';
       const timeStr = new Date(m.ts).getHours().toString().padStart(2,'0') + ':' + new Date(m.ts).getMinutes().toString().padStart(2,'0');
       row.innerHTML = `<div class="chat-body"><span class="chat-name-wrap">${rankBadgeHTML(m.rankId||'soldado','20')}<span class="chat-name">${escapeHtml(m.name)}</span>${roleBadgeAfterNameHTML(m.role,'18')}</span> <span class="chat-text">${escapeHtml(m.text)}</span><span class="chat-time">${timeStr}</span></div>`;
-      log.appendChild(row);
+      addPersonalMuteButton(row,m);log.appendChild(row);
     });
     if(wasNearBottom) log.scrollTop = log.scrollHeight;
   }
