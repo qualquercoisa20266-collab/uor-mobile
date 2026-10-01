@@ -1,5 +1,5 @@
 const GAME_VERSION = '2.5';
-const GLOBAL_CHAT_RESET_MS = 5*60*1000;
+const GLOBAL_CHAT_RESET_MS = 10*60*1000;
 const RECONNECT_GRACE_MS = 5*60*1000;
 const CONNECTION_WATCHDOG_MS = 15000;
 const HEARTBEAT_ALARM_MS = 7000;
@@ -243,12 +243,14 @@ async function apiModerationKick(req,env,user){
   if(!isStaffOrAdmin(user))return json({ok:false,error:'Sem permissão.'},403);
   const b=await body(req),targetId=String(b.userId||'').trim();
   if(!targetId||targetId===user.id)return json({ok:false,error:'Jogador inválido.'},400);
+  const allowed=isAdmin(user)?[0,5,10,20,30]:[0,5,30];
+  const minutes=Number(b.minutes??0);
+  if(!allowed.includes(minutes))return json({ok:false,error:'Duração de Kick não permitida para este cargo.'},403);
   await ensureModerationSchema(env);
   const target=await env.DB.prepare('SELECT id,nick,role FROM users WHERE id=?').bind(targetId).first();
   if(!target)return json({ok:false,error:'Jogador não encontrado.'},404);
   if(target.role==='ADMIN'&&user.role!=='ADMIN')return json({ok:false,error:'STAFF não pode expulsar uma conta ADMIN.'},403);
-  const allowed=[0,5,10,20,30];
-  const minutes=allowed.includes(Number(b.minutes))?Number(b.minutes):0;
+
   const ts=now(),expires=minutes>0?ts+minutes*60*1000:0;
   if(minutes>0){
     await env.DB.prepare('INSERT INTO user_kicks(user_id,kicked_by,created_at,expires_at,duration_minutes) VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET kicked_by=excluded.kicked_by,created_at=excluded.created_at,expires_at=excluded.expires_at,duration_minutes=excluded.duration_minutes').bind(targetId,user.id,ts,expires,minutes).run();
