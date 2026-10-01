@@ -1771,7 +1771,7 @@
     return COLORS[0];
   }
   function avatarHTML(colorId){ const c = colorObj(colorId); return soldierSVG(c.hex, c.dark); }
-  function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+  function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML.replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
   function showToast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove('show'),2600); }
   function uid(){ return 'u_' + Math.random().toString(36).slice(2,9); }
   // Identidade estável do jogador: sobrevive a fechar/reabrir o navegador
@@ -1864,6 +1864,7 @@
   let dirConn = null;
   let lobbyPresenceWs = null;
   let lobbyPresenceReconnectTimer = null;
+  let lobbyPresenceReconnectAttempts=0;
   let onlinePlayers = [];
   let selectedOnlinePlayer = null;
   let roomWs = null;
@@ -1895,7 +1896,7 @@
     box.classList.remove('online','offline','connecting'); box.classList.add(state);
     $('#connLabel').textContent=label;
   }
-  function markOnline(){ reconnectAttempts=0; clearTimeout(gracePeriodTimer); setConnUI('online','Servidor UOR conectado'); }
+  function markOnline(){ clearTimeout(gracePeriodTimer); setConnUI('online','Servidor UOR conectado'); }
   function closeLobbyPresence(){if(lobbyPresenceReconnectTimer){clearTimeout(lobbyPresenceReconnectTimer);lobbyPresenceReconnectTimer=null;}if(lobbyPresenceWs){try{lobbyPresenceWs.close()}catch{}lobbyPresenceWs=null;}}
   function renderOnlinePlayers(){
     const list=$('#onlinePlayersList');if(!list)return;
@@ -1909,7 +1910,7 @@
     list.querySelectorAll('[data-online-player-id]').forEach(btn=>btn.addEventListener('click',()=>{const p=onlinePlayers.find(x=>x.id===btn.dataset.onlinePlayerId);if(p)openOnlinePlayerActions(p);}));
   }
   function handlePresenceSnapshot(users){onlinePlayers=(Array.isArray(users)?users:[]).filter(p=>p&&p.id).sort((a,b)=>a.nick.localeCompare(b.nick,'pt-BR',{sensitivity:'base'}));renderOnlinePlayers();}
-  function connectLobbyPresence(){if(!authUser)return;closeLobbyPresence();markOnline();const ws=new WebSocket(serverWsUrl('/ws/lobby'));lobbyPresenceWs=ws;ws.onopen=()=>{markOnline();};ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='presence_snapshot')handlePresenceSnapshot(m.users||[]);else if(m.type==='kick_notice')handleKickNotice(m);}catch{}};ws.onerror=()=>{};ws.onclose=()=>{if(lobbyPresenceWs!==ws)return;lobbyPresenceWs=null;if(authUser&&!forcedLogout&&!lobbyPresenceReconnectTimer){lobbyPresenceReconnectTimer=setTimeout(()=>{lobbyPresenceReconnectTimer=null;if(authUser&&!forcedLogout)connectLobbyPresence();},1200);}};}
+  function connectLobbyPresence(){if(!authUser)return;closeLobbyPresence();markOnline();const ws=new WebSocket(serverWsUrl('/ws/lobby'));lobbyPresenceWs=ws;ws.onopen=()=>{lobbyPresenceReconnectAttempts=0;markOnline();};ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='presence_snapshot')handlePresenceSnapshot(m.users||[]);else if(m.type==='kick_notice')handleKickNotice(m);}catch{}};ws.onerror=()=>{};ws.onclose=()=>{if(lobbyPresenceWs!==ws)return;lobbyPresenceWs=null;if(authUser&&!forcedLogout&&!lobbyPresenceReconnectTimer){lobbyPresenceReconnectAttempts++;const delay=Math.min(30000,1200*Math.pow(2,Math.min(5,lobbyPresenceReconnectAttempts-1)))+Math.floor(Math.random()*500);lobbyPresenceReconnectTimer=setTimeout(()=>{lobbyPresenceReconnectTimer=null;if(authUser&&!forcedLogout)connectLobbyPresence();},delay);}};}
 
   function markConnecting(label){ setConnUI('connecting',label||'Conectando ao servidor...'); }
   function markOfflineWithGrace(){ clearTimeout(gracePeriodTimer); markConnecting('Reconectando ao servidor...'); gracePeriodTimer=setTimeout(()=>setConnUI('offline','Sem conexão — tentando novamente'),3500); }
@@ -1930,18 +1931,24 @@
     const res=await fetch(path,opts); let data=null; try{data=await res.json()}catch{data={ok:false,error:'Resposta inválida do servidor.'}};
     if(!res.ok||data.ok===false)throw new Error(data.error||'Falha no servidor.'); return data;
   }
+  let lobbyRefreshBusy=false;
+  let lobbyPollingEnabled=false;
+  let lobbyPollingGeneration=0;
   async function refreshLobbyData(){
+    if(lobbyRefreshBusy||!authUser)return;
+    lobbyRefreshBusy=true;
     try{
       const [r,c]=await Promise.all([fetchJson('/api/rooms'),fetchJson('/api/chat')]);
-      rooms={};(r.rooms||[]).forEach(x=>rooms[x.id]=x); chatLog=c.chat||[];
+      rooms={};(r.rooms||[]).forEach(x=>rooms[x.id]=x);chatLog=c.chat||[];
       renderChat();renderRoomList();updateMyRoomBar();renderOnlinePlayers();markOnline();
-    }catch(e){markOfflineWithGrace();}
+    }catch(e){markOfflineWithGrace();}finally{lobbyRefreshBusy=false;}
   }
   function startLobbyPolling(){
-    if(lobbyPollTimer)clearInterval(lobbyPollTimer); refreshLobbyData();
-    lobbyPollTimer=setInterval(refreshLobbyData,4000);
+    stopLobbyPolling();lobbyPollingEnabled=true;const generation=lobbyPollingGeneration;
+    const tick=async()=>{if(!lobbyPollingEnabled||generation!==lobbyPollingGeneration)return;if(!document.hidden)await refreshLobbyData();if(lobbyPollingEnabled&&generation===lobbyPollingGeneration)lobbyPollTimer=setTimeout(tick,gameState?15000:8000);};
+    tick();
   }
-  function stopLobbyPolling(){if(lobbyPollTimer){clearInterval(lobbyPollTimer);lobbyPollTimer=null;}}
+  function stopLobbyPolling(){lobbyPollingGeneration++;lobbyPollingEnabled=false;if(lobbyPollTimer){clearTimeout(lobbyPollTimer);lobbyPollTimer=null;}}
   function connectToNetwork(){markConnecting('Conectando ao servidor...');startLobbyPolling();connectLobbyPresence();}
   function closeRoomSocket(){if(roomHeartbeatTimer){clearInterval(roomHeartbeatTimer);roomHeartbeatTimer=null;}if(roomWs){try{roomWs.close()}catch{}roomWs=null;}if(reconnectLoopTimer){clearTimeout(reconnectLoopTimer);reconnectLoopTimer=null;}}
   function connectRoomSocket(roomId,options={}){
@@ -1951,14 +1958,14 @@
     markConnecting(roomConnectionSpectator?'Entrando como espectador...':'Entrando na batalha...');
     const suffix=roomConnectionSpectator?'?spectator=1':'';
     const ws=new WebSocket(serverWsUrl('/ws/rooms/'+encodeURIComponent(roomId)+suffix)); roomWs=ws;
-    ws.onopen=()=>{markOnline();showToast(roomConnectionSpectator?'Conectado como espectador.':'Conectado à sala de batalha.');if(roomHeartbeatTimer)clearInterval(roomHeartbeatTimer);roomHeartbeatTimer=setInterval(()=>{try{if(roomWs===ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'heartbeat'}));}catch{}},5000);};
+    ws.onopen=()=>{reconnectAttempts=0;markOnline();showToast(roomConnectionSpectator?'Conectado como espectador.':'Conectado à sala de batalha.');if(roomHeartbeatTimer)clearInterval(roomHeartbeatTimer);roomHeartbeatTimer=setInterval(()=>{try{if(roomWs===ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'heartbeat'}));}catch{}},5000);};
     ws.onmessage=e=>{try{handleClientData(JSON.parse(e.data))}catch{}};
-    ws.onclose=()=>{if(forcedLogout)return;if(myRoomId===roomId || spectatorRoomId===roomId){markOfflineWithGrace();scheduleRoomReconnect(roomId);}};
+    ws.onclose=()=>{if(roomWs!==ws||forcedLogout)return;if(myRoomId===roomId || spectatorRoomId===roomId){markOfflineWithGrace();scheduleRoomReconnect(roomId);}};
     ws.onerror=()=>{markOfflineWithGrace();};
   }
   function scheduleRoomReconnect(roomId){
-    if(reconnectLoopTimer)return; reconnectAttempts=0;
-    reconnectLoopTimer=setTimeout(()=>{reconnectLoopTimer=null;if(myRoomId===roomId)connectRoomSocket(roomId,{spectator:false});else if(spectatorRoomId===roomId)connectRoomSocket(roomId,{spectator:true});},1500);
+    if(reconnectLoopTimer)return;reconnectAttempts++;const retryMs=Math.min(30000,1500*Math.pow(2,Math.min(5,reconnectAttempts-1)))+Math.floor(Math.random()*500);
+    reconnectLoopTimer=setTimeout(()=>{reconnectLoopTimer=null;if(myRoomId===roomId)connectRoomSocket(roomId,{spectator:false});else if(spectatorRoomId===roomId)connectRoomSocket(roomId,{spectator:true});},retryMs);
   }
   async function manualReconnect(){const btn=$('#reconnectBtn');if(btn){btn.classList.add('spinning');setTimeout(()=>btn.classList.remove('spinning'),700);}if(myRoomId)connectRoomSocket(myRoomId,{spectator:false});else if(spectatorRoomId)connectRoomSocket(spectatorRoomId,{spectator:true});else refreshLobbyData();}
 
@@ -2559,7 +2566,7 @@
   }
 
   function submitGameAction(action){
-    if(airAttackSequenceBusy) return;
+    if(airAttackSequenceBusy||gameState?.winner||gameState?.resultRecorded||spectatorMode) return;
     action=Object.assign({},action,{byConnId:myConnIdForRoom()});
     if(!roomWs || roomWs.readyState!==WebSocket.OPEN){ showToast('Sem conexão com o servidor da partida.'); return; }
     roomWs.send(JSON.stringify({type:'game_action',action}));
@@ -2923,37 +2930,12 @@
     return state;
   }
 
-  function checkWinner(state){
-    const active = state.players.filter(p=>!p.eliminated);
-    if(active.length === 1) return active[0].connId;
-    for(const p of active){
-      const owned = Object.keys(state.territories).filter(tid=> state.territories[tid].owner===p.connId);
-      if(owned.length === TERRITORIES.length) return p.connId;
-      const obj = state.objectives[p.connId];
-      if(!obj) continue;
-      if(obj.type === 'territories' && Number(obj.count) === 18){ obj.count=24; obj.text='Conquistar 24 territórios quaisquer.'; }
-      if(obj.type === 'territories' && Number(state.playerStats?.[p.connId]?.conquests||0) >= Number(obj.count||0)) return p.connId;
-      if(obj.type === 'continents' && obj.list.every(cid=> TERRITORIES.filter(t=>t.continent===cid).every(t=> state.territories[t.id].owner===p.connId))) return p.connId;
-      if(obj.type === 'continents_any_extra'){
-        const ownsFixed = obj.list.every(cid=> TERRITORIES.filter(t=>t.continent===cid).every(t=> state.territories[t.id].owner===p.connId));
-        if(ownsFixed){
-          const others = Object.keys(CONTINENTS).filter(cid=> !obj.list.includes(cid));
-          const extraOwned = others.filter(cid=> TERRITORIES.filter(t=>t.continent===cid).every(t=> state.territories[t.id].owner===p.connId)).length;
-          if(extraOwned >= obj.extra) return p.connId;
-        }
-      }
-      if(obj.type === 'eliminate'){
-        const target = state.players.find(pp=>pp.connId===obj.targetConnId);
-        if(target && target.eliminated) return p.connId;
-      }
-    }
-    return null;
-  }
+  function checkWinner(state){ return state?.winner || null; }
 
   let lastShownWinnerId = null;
   function checkAndShowVictory(){
     if(!gameState) return;
-    const w = gameState.winner || checkWinner(gameState);
+    const w = gameState.winner;
     if(!w) return;
     gameState.winner = w;
     if(lastShownWinnerId !== w){ lastShownWinnerId = w; showVictoryModal(w); }
@@ -2987,11 +2969,9 @@
       }
       return;
     } else if(payload.type === 'game_action'){
-      if(amICurrentRoomHost()){
-        const newState = resolveGameAction(gameState, payload.action);
-        if(newState){ gameState = newState; renderGame(); broadcastGameState(); checkAndShowVictory(); }
-      }
+      return; // Todas as ações competitivas são resolvidas pelo servidor.
     } else if(payload.type === 'game_action_rejected'){
+      airAttackSequenceBusy=false;airAttackArmed=false;renderGame();
       showToast(payload.reason || 'Ação recusada pelo servidor.');
       try{ if(roomWs && roomWs.readyState===WebSocket.OPEN) roomWs.send(JSON.stringify({type:'sync_request'})); }catch{}
     } else if(payload.type === 'game_state_sync'){
