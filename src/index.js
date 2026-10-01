@@ -1,4 +1,4 @@
-const GAME_VERSION = '2.4';
+const GAME_VERSION = '2.5';
 const GLOBAL_CHAT_RESET_MS = 5*60*1000;
 const RECONNECT_GRACE_MS = 5*60*1000;
 const CONNECTION_WATCHDOG_MS = 15000;
@@ -48,7 +48,7 @@ const CARD_SYMBOLS = ['espada','castelo','cavalo','aviao'];
 const TRADE_VALUES = [4,6,8,10,12,15];
 const AIR = 'aviao';
 const DEFAULT_ROOM_SETTINGS = { map:'classic', airAttackEnabled:true, cardLimit:'classic', soldiers:'classic' };
-function normalizeRoomSettings(raw){const r=raw&&typeof raw==='object'?raw:{};return {map:r.map==='apocalyptic'?'apocalyptic':'classic',airAttackEnabled:r.airAttackEnabled===false||r.airAttack==='disabled'?false:true,cardLimit:r.cardLimit==='unlimited'?'unlimited':'classic',soldiers:r.soldiers==='military'?'military':'classic'};}
+function normalizeRoomSettings(raw){const r=raw&&typeof raw==='object'?raw:{};const map=r.map==='apocalyptic'?'apocalyptic':(r.map==='glacial'?'glacial':'classic');return {map,airAttackEnabled:r.airAttackEnabled===false||r.airAttack==='disabled'?false:true,cardLimit:r.cardLimit==='unlimited'?'unlimited':'classic',soldiers:r.soldiers==='military'?'military':'classic'};}
 
 function now(){return Date.now();}
 function uuid(){return crypto.randomUUID();}
@@ -519,10 +519,35 @@ function chooseAiAction(state,pid){
     return {kind:'endAttackPhase',byConnId:pid};
   }
   if(state.phase==='fortificacao'){
+    // Um território que já recebeu tropas nesta fortificação fica travado como origem.
+    // A IA precisa respeitar exatamente a mesma regra do jogador humano; caso contrário
+    // ela escolhe uma origem inválida para sempre e nunca chega ao fim da vez.
+    const locked=new Set(state.fortifyLockedTerritories||[]);
     let best=null;
-    for(const fromId of ownIds){const from=t[fromId];if((from.armies||0)<2)continue;for(const toId of (ADJ[fromId]||[])){const to=t[toId];if(!to||to.owner!==pid)continue;const score=(from.armies||0)-(to.armies||0);if(!best||score>best.score)best={fromId,toId,score};}}
+    for(const fromId of ownIds){
+      const from=t[fromId];
+      if(locked.has(fromId)||(from.armies||0)<2)continue;
+      for(const toId of (ADJ[fromId]||[])){
+        const to=t[toId];
+        if(!to||to.owner!==pid)continue;
+        const score=(from.armies||0)-(to.armies||0);
+        if(!best||score>best.score)best={fromId,toId,score};
+      }
+    }
     if(best&&best.score>0)return {kind:'fortify',fromId:best.fromId,toId:best.toId,amount:1,byConnId:pid};
     return {kind:'endTurn',byConnId:pid};
+  }
+  return null;
+}
+function chooseAiFallbackAction(state,pid){
+  const p=state?.players?.[state.turnIndex];
+  if(!p||p.id!==pid||state.airAttackPending)return null;
+  // Fallback conservador: só conclui fases em que não há mais ação obrigatória.
+  // Não encerra ataque após uma recusa transitória (por exemplo, cooldown de dados).
+  if(state.phase==='fortificacao'&&!state.pendingConquestTransfer)return {kind:'endTurn',byConnId:pid};
+  if(state.phase==='reforco'){
+    ensureReinforcementState(state,pid);
+    if((state.reinforcementStage||'free')!=='continent'&&Number(state.reinforcementsRemaining||0)<=0)return {kind:'endReinforcePhase',byConnId:pid};
   }
   return null;
 }
@@ -594,7 +619,7 @@ export class UORRoom {
  }
  async runAiTurn(){
   if(!this.game||this.game.winner||this.game.resultRecorded)return false;const p=this.game.players[this.game.turnIndex];if(!p||!p.aiControlled)return false;if(p.kickActive){if(Number(p.kickUntil||0)>now())return false;p.kickActive=false;p.kickUntil=0;p.connectionStatus='disconnected';p.reconnectUntil=now()+RECONNECT_GRACE_MS;this.game.log.push(`${p.name} encerrou o Kick e voltou ao período normal de reconexão.`);await this.persist();}if(Number(p.reconnectUntil)>0&&Number(p.reconnectUntil)<=now()){await this.registerExpiredDesertion(p.id);return false;}
-  const action=chooseAiAction(this.game,p.id);if(!action)return false;const next=applyAction(this.game,action);if(!next)return false;this.game=next;this.game.winner=checkWinner(this.game);if(this.game.winner&&!this.game.finishedAt)this.game.finishedAt=now();if(this.game.winner&&!this.game.resultRecorded)await recordResults(this.env,this.game);await this.persist();this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.game}});return true;
+  let action=chooseAiAction(this.game,p.id);if(!action)return false;let next=applyAction(this.game,action);if(!next){const fallback=chooseAiFallbackAction(this.game,p.id);if(!fallback||fallback.kind===action.kind)return false;action=fallback;next=applyAction(this.game,action);if(!next)return false;}this.game=next;this.game.winner=checkWinner(this.game);if(this.game.winner&&!this.game.finishedAt)this.game.finishedAt=now();if(this.game.winner&&!this.game.resultRecorded)await recordResults(this.env,this.game);await this.persist();this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.game}});return true;
  }
  async closeFinishedRoom(){
   if(!this.game||!this.room||(!this.game.winner&&!this.game.resultRecorded))return false;
