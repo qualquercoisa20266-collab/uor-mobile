@@ -1,9 +1,94 @@
-const GAME_VERSION = '2.5';
+const LEGAL_VERSION='2026-10-01';
+let communitySchemaPromise=null;
+async function ensureCommunitySchema(env){
+ if(!communitySchemaPromise)communitySchemaPromise=(async()=>{
+  await ensureModerationSchema(env);await ensureDesertionSchema(env);
+  await env.DB.batch([
+   env.DB.prepare('CREATE TABLE IF NOT EXISTS user_blocks (user_id TEXT NOT NULL,blocked_user_id TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(user_id,blocked_user_id))'),
+   env.DB.prepare('CREATE TABLE IF NOT EXISTS user_reports (id TEXT PRIMARY KEY,reporter_id TEXT NOT NULL,target_id TEXT NOT NULL,reason TEXT NOT NULL,evidence TEXT NOT NULL,room_id TEXT,created_at INTEGER NOT NULL,status TEXT NOT NULL DEFAULT \'open\',reviewed_by TEXT,reviewed_at INTEGER)'),
+   env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_user_reports_status ON user_reports(status,created_at)'),
+   env.DB.prepare('CREATE TABLE IF NOT EXISTS user_consents (user_id TEXT PRIMARY KEY,version TEXT NOT NULL,accepted_at INTEGER NOT NULL)'),
+   env.DB.prepare('CREATE TABLE IF NOT EXISTS user_deletion_requests (user_id TEXT PRIMARY KEY,requested_at INTEGER NOT NULL)')
+  ]);
+ })().catch(e=>{communitySchemaPromise=null;throw e;});
+ return communitySchemaPromise;
+}
+function legalConfigured(env){return !!String(env.PUBLIC_DEVELOPER_NAME||'').trim()&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(env.PUBLIC_CONTACT_EMAIL||'').trim());}
+function htmlEscape(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function legalResponse(title,content,status=200){return new Response(`<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${htmlEscape(title)} — UOR</title><style>body{margin:0;background:#151b22;color:#eee;font:17px/1.65 system-ui}main{max-width:780px;margin:32px auto;padding:24px}a{color:#9cdaff}button,input{font:inherit;padding:10px;margin:8px 0;max-width:100%;box-sizing:border-box}label{display:block}button{cursor:pointer}small{display:block}</style><main><h1>${htmlEscape(title)}</h1>${content}<p><a href="/">Voltar ao UOR</a> · <a href="/privacy">Privacidade</a> · <a href="/terms">Termos</a> · <a href="/delete-account">Excluir conta</a></p></main></html>`,{status,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'same-origin','content-security-policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"}});}
+function publicLegalPage(path,env){
+ if(path==='/terms')return legalResponse('Termos de Uso',`<p>UOR — versão ${LEGAL_VERSION}.</p><p>Ao criar uma conta ou publicar mensagens, você aceita estas regras. Não publique ameaças, assédio, discriminação, conteúdo sexual explícito, exploração de crianças, informações privadas de terceiros, spam ou material ilegal. Não tente manipular partidas, invadir contas ou prejudicar o serviço.</p><p>O nick e as mensagens são visíveis a outros jogadores. Use os botões de denúncia e bloqueio para comunicar abusos e ocultar mensagens. A equipe pode silenciar, remover sessões e aplicar suspensões conforme o caso; denúncias devem ser avaliadas e respondidas continuamente.</p><p>Vitórias rendem 10 pontos, derrotas não alteram a pontuação e deserções descontam até 6 pontos, sem saldo negativo. Desconexões permitem retorno em até 10 minutos; a IA assume a vez enquanto houver jogadores humanos. A saída voluntária registra deserção. Suspensões por deserção: 1 hora na primeira, 2 horas na segunda e 6 horas nas seguintes.</p><p>Você pode excluir sua conta e os dados associados. O bloqueio oculta mensagens do jogador nos chats e não altera as regras ou a composição das partidas.</p>${legalConfigured(env)?`<p>Responsável: ${htmlEscape(env.PUBLIC_DEVELOPER_NAME)}. Contato: ${htmlEscape(env.PUBLIC_CONTACT_EMAIL)}.</p>`:''}`);
+ if(path==='/privacy'){
+  if(!legalConfigured(env))return legalResponse('Política de Privacidade — configuração pendente','<p>A identificação do responsável e o contato de privacidade ainda não foram configurados. Esta versão não está pronta para publicação pública.</p>',503);
+  return legalResponse('Política de Privacidade',`<p>UOR — atualização ${LEGAL_VERSION}. Responsável: ${htmlEscape(env.PUBLIC_DEVELOPER_NAME)}. Contato: <a href="mailto:${htmlEscape(env.PUBLIC_CONTACT_EMAIL)}">${htmlEscape(env.PUBLIC_CONTACT_EMAIL)}</a>.</p><h2>Dados e finalidade</h2><p>O serviço recebe nick, login e senha para criar e autenticar sua conta. A senha é armazenada somente como derivação criptográfica com salt. Armazena sessões, tentativas de login, pontuação, estatísticas, conquistas, histórico de partidas, mensagens, bloqueios, denúncias e medidas de moderação para operar o jogo, impedir abusos e avaliar denúncias. As conexões ao servidor informam também dados técnicos de rede, como endereço IP.</p><h2>Visibilidade e fornecedores</h2><p>Nick, patente, estatísticas e histórico são visíveis a outros jogadores. Mensagens são visíveis aos participantes dos respectivos chats; denúncias são acessíveis à equipe de moderação. O servidor utiliza Cloudflare Workers, Durable Objects e D1 para processamento e armazenamento. A infraestrutura pode processar dados fora do Brasil. Este código do jogo não inclui anúncios nem ferramentas de rastreamento publicitário.</p><h2>Segurança e retenção</h2><p>Use o serviço por HTTPS. Cookies de sessão são protegidos por HttpOnly, Secure e SameSite. Sessões expiram em 30 dias. O chat global tem uma janela de 10 minutos e limpeza agendada no servidor; atrasos operacionais podem adiar a remoção; evidências recentes de chat de sala são limitadas às 100 mensagens mais recentes e removidas quando a sala fecha. Uma denúncia pode guardar uma cópia da evidência enquanto sua conta existir, inclusive depois de uma mensagem sair do chat. Dados de conta, histórico, bloqueios, denúncias e moderação permanecem até a exclusão da conta. Registros técnicos da infraestrutura seguem a configuração operacional do responsável; solicite detalhes pelo contato acima.</p><h2>Exclusão e direitos</h2><p>Use “Excluir minha conta” no jogo ou <a href="/delete-account">a página externa de exclusão</a>. A senha confirma a titularidade. Excluímos conta, sessões, mensagens, estatísticas, conquistas, histórico próprio, bloqueios, denúncias associadas e registros de moderação. Partidas compartilhadas em andamento preservam apenas um participante anônimo controlado por IA e removem a identificação original. As referências ao nick nos históricos compartilhados são anonimizadas. Se uma etapa falhar, a solicitação permanece registrada e você pode repetir a operação com segurança; contate o responsável em caso de dificuldade.</p><p>Para dúvidas sobre acesso, correção ou tratamento de dados, contate ${htmlEscape(env.PUBLIC_CONTACT_EMAIL)}. A declaração de Segurança dos dados do aplicativo deve incluir também as práticas de qualquer componente Android adicional.</p>`);
+ }
+ if(path==='/delete-account')return legalResponse('Excluir conta e dados',`<p>Esta página permite excluir sua conta UOR mesmo sem instalar ou abrir o aplicativo. A operação é permanente e inclui estatísticas, histórico próprio, mensagens e dados associados. Em partidas em andamento, sua posição passa para uma IA anônima.</p><form id="deletionForm"><label>Login <input name="login" required autocomplete="username" maxlength="24"></label><label>Senha atual <input name="password" type="password" required autocomplete="current-password" maxlength="128"></label><label><input name="confirm" type="checkbox" required> Entendo que a exclusão é permanente.</label><button type="submit">Excluir permanentemente</button><p id="result" role="status"></p></form><script>document.getElementById('deletionForm').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget,b=f.querySelector('button'),r=document.getElementById('result');b.disabled=true;r.textContent='Processando…';try{const res=await fetch('/api/account/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({login:f.login.value,password:f.password.value,confirm:true})});const d=await res.json();if(!res.ok||!d.ok)throw Error(d.error||'Não foi possível excluir.');r.textContent='Conta e dados excluídos.';f.reset();}catch(err){r.textContent=err.message;}finally{b.disabled=false;}});</script>`);
+ return null;
+}
+async function blockedUsers(env,uid){await ensureCommunitySchema(env);const r=await env.DB.prepare('SELECT blocked_user_id FROM user_blocks WHERE user_id=?').bind(uid).all();return new Set((r.results||[]).map(x=>x.blocked_user_id));}
+async function apiBlocks(req,env,user){
+ await ensureCommunitySchema(env);
+ if(req.method==='GET'){const r=await env.DB.prepare('SELECT b.blocked_user_id id,u.nick FROM user_blocks b JOIN users u ON u.id=b.blocked_user_id WHERE b.user_id=? ORDER BY b.created_at DESC').bind(user.id).all();return json({ok:true,users:r.results||[]});}
+ const b=await body(req),targetId=String(b.userId||'');
+ if(targetId===user.id||!await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(targetId).first())return json({ok:false,error:'Jogador inválido.'},400);
+ if(b.blocked===false)await env.DB.prepare('DELETE FROM user_blocks WHERE user_id=? AND blocked_user_id=?').bind(user.id,targetId).run();
+ else await env.DB.prepare('INSERT OR IGNORE INTO user_blocks(user_id,blocked_user_id,created_at) VALUES(?,?,?)').bind(user.id,targetId,now()).run();
+ const rooms=await env.DB.prepare('SELECT id FROM rooms').all();
+ for(const row of rooms.results||[]){const d=await getRoomDO(env,row.id);await d.fetch(new Request('https://uor-room/internal/blocks-updated',{method:'POST',headers:internalHeaders(env,user.id),body:'{}'}));}
+ return json({ok:true,blocked:b.blocked!==false,userId:targetId});
+}
+async function apiReport(req,env,user){
+ await ensureCommunitySchema(env);const b=await body(req),targetId=String(b.userId||''),reason=String(b.reason||'').trim().slice(0,800);
+ if(targetId===user.id||reason.length<3||!await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(targetId).first())return json({ok:false,error:'Informe um jogador e o motivo da denúncia.'},400);
+ const count=await env.DB.prepare('SELECT COUNT(*) c FROM user_reports WHERE reporter_id=? AND created_at>?').bind(user.id,now()-3600000).first();
+ if(Number(count?.c||0)>=10)return json({ok:false,error:'Limite de denúncias atingido. Aguarde uma hora.'},429);
+ let evidence='',roomId=null;
+ if(b.messageId){
+  if(b.roomId){roomId=String(b.roomId);const d=await getRoomDO(env,roomId);const res=await d.fetch(new Request('https://uor-room/internal/report-evidence',{method:'POST',headers:internalHeaders(env,user.id),body:JSON.stringify({messageId:String(b.messageId),targetId})}));if(!res.ok)return json({ok:false,error:'Mensagem indisponível para denúncia.'},400);evidence=JSON.stringify((await res.json()).entry);}
+  else {const row=await env.DB.prepare('SELECT id,user_id,nick,text,ts FROM chat_messages WHERE id=? AND user_id=?').bind(String(b.messageId),targetId).first();if(!row)return json({ok:false,error:'Mensagem indisponível para denúncia.'},400);evidence=JSON.stringify(row);}
+ }
+ const id=uuid();await env.DB.prepare('INSERT INTO user_reports(id,reporter_id,target_id,reason,evidence,room_id,created_at) VALUES(?,?,?,?,?,?,?)').bind(id,user.id,targetId,reason,evidence,roomId,now()).run();return json({ok:true,id});
+}
+async function apiReports(req,env,user){
+ if(!isStaffOrAdmin(user))return json({ok:false,error:'Sem permissão.'},403);
+ await ensureCommunitySchema(env);
+ if(req.method==='POST'){const b=await body(req);await env.DB.prepare("UPDATE user_reports SET status='resolved',reviewed_by=?,reviewed_at=? WHERE id=? AND status='open'").bind(user.id,now(),String(b.id||'')).run();return json({ok:true});}
+ const rows=await env.DB.prepare("SELECT r.*,a.nick reporter_nick,t.nick target_nick FROM user_reports r LEFT JOIN users a ON a.id=r.reporter_id LEFT JOIN users t ON t.id=r.target_id WHERE r.status='open' ORDER BY r.created_at ASC LIMIT 100").all();return json({ok:true,reports:rows.results||[]});
+}
+async function apiDeleteAccount(req,env){
+ await ensureCommunitySchema(env);const b=await body(req),password=String(b.password||'');
+ if(b.confirm!==true||password.length<1||password.length>128)return json({ok:false,error:'Confirme a exclusão e informe a senha atual.'},400);
+ const sessionUser=await authUser(req,env),login=String(b.login||sessionUser?.login||'').trim().toLowerCase();
+ if(!validLogin(login)||await rateBlocked(env,login))return json({ok:false,error:'Aguarde para tentar novamente.'},429);
+ const user=await env.DB.prepare('SELECT * FROM users WHERE login=?').bind(login).first();
+ if(!user||await hashPassword(password,user.password_salt)!==user.password_hash){await logAttempt(env,login,false);return json({ok:false,error:'Login ou senha incorretos.'},401);}
+ await env.DB.prepare('INSERT OR IGNORE INTO user_deletion_requests(user_id,requested_at) VALUES(?,?)').bind(user.id,now()).run();
+ // Mark first, detach every shared room, then remove account rows atomically. Retries repeat safe operations.
+ const rooms=await env.DB.prepare('SELECT id FROM rooms').all();
+ for(const row of rooms.results||[]){const d=await getRoomDO(env,row.id);const res=await d.fetch(new Request('https://uor-room/internal/account-deleted',{method:'POST',headers:internalHeaders(env,user.id),body:JSON.stringify({nick:user.nick})}));if(!res.ok)throw new Error('Falha ao remover identidade da sala. Repita a exclusão.');}
+ const lobby=await getRoomDO(env,'__uor_lobby_presence__');const res=await lobby.fetch(new Request('https://uor-room/internal/account-deleted',{method:'POST',headers:internalHeaders(env,user.id),body:JSON.stringify({nick:user.nick})}));if(!res.ok)throw new Error('Falha ao encerrar a presença.');
+ const ops=[];
+ ops.push(env.DB.prepare(`UPDATE match_history SET opponent_names=(SELECT json_group_array(CASE WHEN j.value=? THEN 'Jogador excluído' ELSE j.value END) FROM json_each(match_history.opponent_names) j),room_name=replace(room_name,?,'Jogador excluído') WHERE user_id<>? AND (EXISTS(SELECT 1 FROM json_each(match_history.opponent_names) j WHERE j.value=?) OR instr(room_name,?)>0)`).bind(user.nick,user.nick,user.id,user.nick,user.nick));
+ for(const table of ['sessions','user_achievements','match_history','chat_messages','user_stats','user_mutes','user_kicks','user_suspensions','user_consents'])ops.push(env.DB.prepare(`DELETE FROM ${table} WHERE user_id=?`).bind(user.id));
+ ops.push(env.DB.prepare('DELETE FROM user_blocks WHERE user_id=? OR blocked_user_id=?').bind(user.id,user.id));
+ ops.push(env.DB.prepare('DELETE FROM user_reports WHERE reporter_id=? OR target_id=?').bind(user.id,user.id));
+ ops.push(env.DB.prepare("UPDATE user_reports SET reviewed_by=NULL WHERE reviewed_by=?").bind(user.id));
+ for(const [table,column] of [['user_mutes','muted_by'],['user_kicks','kicked_by']])ops.push(env.DB.prepare(`UPDATE ${table} SET ${column}='deleted' WHERE ${column}=?`).bind(user.id));
+ ops.push(env.DB.prepare('DELETE FROM chat_messages WHERE instr(text,?)>0 OR nick=?').bind(user.nick,user.nick));
+ ops.push(env.DB.prepare('DELETE FROM auth_attempts WHERE login=?').bind(user.login));
+ ops.push(env.DB.prepare('DELETE FROM user_deletion_requests WHERE user_id=?').bind(user.id));
+ ops.push(env.DB.prepare('DELETE FROM users WHERE id=?').bind(user.id));
+ await env.DB.batch(ops);
+ return json({ok:true,deleted:true},200,{'set-cookie':clearCookie(COOKIE)});
+}
+
+const GAME_VERSION = '2.7';
 const GLOBAL_CHAT_RESET_MS = 10*60*1000;
-const RECONNECT_GRACE_MS = 5*60*1000;
+const RECONNECT_GRACE_MS = 10*60*1000;
 const CONNECTION_WATCHDOG_MS = 15000;
 const HEARTBEAT_ALARM_MS = 7000;
 const FINISHED_ROOM_CLOSE_MS = 15000;
+const RESULT_RETRY_MS = 5000;
 const JSON_HEADERS = { 'content-type':'application/json; charset=utf-8', 'cache-control':'no-store' };
 const COOKIE = 'uor_session';
 const SESSION_DAYS = 30;
@@ -52,6 +137,9 @@ function normalizeRoomSettings(raw){const r=raw&&typeof raw==='object'?raw:{};co
 
 function now(){return Date.now();}
 function uuid(){return crypto.randomUUID();}
+function strictPositiveInt(value){const n=Number(value);return Number.isSafeInteger(n)&&n>=1?n:null;}
+function validTerritoryId(id){return typeof id==='string'&&Object.prototype.hasOwnProperty.call(T,id);}
+function isPlainObject(v){return !!v&&typeof v==='object'&&!Array.isArray(v);}
 function json(data,status=200,extra={}){return new Response(JSON.stringify(data),{status,headers:{...JSON_HEADERS,...extra}});}
 function parseCookie(req,name){const s=req.headers.get('Cookie')||'';for(const p of s.split(';')){const [k,...v]=p.trim().split('=');if(k===name)return decodeURIComponent(v.join('='));}return null;}
 function cookie(name,value,maxAge){return `${name}=${encodeURIComponent(value)}; ${maxAge==null?'':`Max-Age=${maxAge}; `}Path=/; HttpOnly; Secure; SameSite=Lax`}
@@ -131,7 +219,7 @@ function formatMsClock(ms){
 }
 async function requireModerator(req,env){const user=await authUser(req,env);if(!user)return null;return isStaffOrAdmin(user)?user:null;}
 function internalHeaders(env,userId){return {'content-type':'application/json','x-uor-user':userId,'x-uor-internal-key':String(env.UOR_ADMIN_KEY||'')};}
-async function authUser(req,env){await ensureModerationSchema(env);const token=parseCookie(req,COOKIE);if(!token)return null;const th=await sha256(token);const row=await env.DB.prepare(`SELECT u.id,u.nick,u.login,u.role,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?`).bind(th,now()).first();if(row)row.role=normalizeRole(row.role);return row||null;}
+async function authUser(req,env){await ensureCommunitySchema(env);const token=parseCookie(req,COOKIE);if(!token)return null;const th=await sha256(token);const row=await env.DB.prepare(`SELECT u.id,u.nick,u.login,u.role,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?`).bind(th,now()).first();if(row){row.role=normalizeRole(row.role);row.deleting=!!await env.DB.prepare('SELECT user_id FROM user_deletion_requests WHERE user_id=?').bind(row.id).first();}return row||null;}
 async function createSession(env,userId){const token=crypto.getRandomValues(new Uint8Array(32));const raw=b64(token);const th=await sha256(raw),ts=now(),exp=ts+SESSION_DAYS*86400000;await env.DB.prepare('INSERT INTO sessions(id,user_id,token_hash,created_at,expires_at) VALUES(?,?,?,?,?)').bind(uuid(),userId,th,ts,exp).run();return raw;}
 function validNick(v){return /^[\p{L}0-9 _-]{3,24}$/u.test(v);}
 function validLogin(v){return /^[a-zA-Z0-9._-]{3,24}$/.test(v);}
@@ -147,6 +235,10 @@ async function apiAuthRegister(req,env){
     const login=String(b.login||'').trim().toLowerCase();
     const password=String(b.password||'');
     const confirm=String(b.confirmPassword??b.password2??'');
+    await ensureCommunitySchema(env);
+    if(!legalConfigured(env))return json({ok:false,error:'Cadastro temporariamente indisponível: o responsável precisa configurar o contato de privacidade.'},503);
+    if(b.acceptTerms!==true||b.legalVersion!==LEGAL_VERSION)return json({ok:false,error:'Leia e aceite os Termos de Uso e confirme a leitura da Política de Privacidade.'},400);
+    if(password.length>128)return json({ok:false,error:'Senha muito longa.'},400);
     if(!validNick(nick))return json({ok:false,error:'Nick inválido. Use 3 a 24 caracteres.'},400);
     if(!validLogin(login))return json({ok:false,error:'Login inválido.'},400);
     if(password.length<8||passwordScore(password)<4)return json({ok:false,error:'Senha fraca. Use pelo menos 8 caracteres, com maiúscula, minúscula, número e símbolo.'},400);
@@ -156,7 +248,8 @@ async function apiAuthRegister(req,env){
     const id=uuid(),salt=b64(crypto.getRandomValues(new Uint8Array(16))),ph=await hashPassword(password,salt),ts=now();
     await env.DB.batch([
       env.DB.prepare('INSERT INTO users(id,nick,login,password_salt,password_hash,created_at) VALUES(?,?,?,?,?,?)').bind(id,nick,login,salt,ph,ts),
-      env.DB.prepare('INSERT INTO user_stats(user_id) VALUES(?)').bind(id)
+      env.DB.prepare('INSERT INTO user_stats(user_id) VALUES(?)').bind(id),
+      env.DB.prepare('INSERT INTO user_consents(user_id,version,accepted_at) VALUES(?,?,?)').bind(id,LEGAL_VERSION,ts)
     ]);
     const token=await createSession(env,id);
     return json({ok:true,user:{id,nick,login,role:'PLAYER'},session:true},200,{'set-cookie':cookie(COOKIE,token)});
@@ -195,15 +288,18 @@ async function cleanupGlobalChat(env){
   await env.DB.prepare('DELETE FROM chat_messages').run();
 }
 async function apiChat(req,env,user){
+  await ensureCommunitySchema(env);
   if(req.method==='GET'){
     await env.DB.prepare('DELETE FROM chat_messages WHERE ts<?').bind(now()-GLOBAL_CHAT_RESET_MS).run();
-    const rows=await env.DB.prepare('SELECT c.nick name,c.color,c.text,c.ts,c.system,s.points,u.role FROM chat_messages c LEFT JOIN user_stats s ON s.user_id=c.user_id LEFT JOIN users u ON u.id=c.user_id ORDER BY c.id DESC LIMIT 200').all();
+    const rows=await env.DB.prepare('SELECT c.id,c.user_id userId,c.nick name,c.color,c.text,c.ts,c.system,s.points,u.role FROM chat_messages c LEFT JOIN user_stats s ON s.user_id=c.user_id LEFT JOIN users u ON u.id=c.user_id WHERE NOT EXISTS (SELECT 1 FROM user_blocks b WHERE b.user_id=? AND b.blocked_user_id=c.user_id) ORDER BY c.id DESC LIMIT 200').bind(user.id).all();
     return json({ok:true,chat:(rows.results||[]).reverse().map(x=>({...x,system:!!x.system,rankId:rankFor(Number(x.points||0)).id,role:normalizeRole(x.role)}))});
   }
   const mute=await getActiveMute(env,user.id);if(mute)return json({ok:false,error:`Você está silenciado por mais ${Math.max(1,Math.ceil((mute.expiresAt-now())/60000))} minuto(s).`},403);
+  const consent=await env.DB.prepare('SELECT version FROM user_consents WHERE user_id=?').bind(user.id).first();if(consent?.version!==LEGAL_VERSION)return json({ok:false,error:'Aceite as regras da comunidade antes de enviar mensagens.'},403);
+  const recent=await env.DB.prepare('SELECT COUNT(*) c FROM chat_messages WHERE user_id=? AND ts>?').bind(user.id,now()-10000).first();if(Number(recent?.c||0)>=8)return json({ok:false,error:'Aguarde antes de enviar mais mensagens.'},429);
   const b=await body(req),text=String(b.text||'').trim().slice(0,400);if(!text)return json({ok:false,error:'Mensagem vazia.'},400);
-  const st=await env.DB.prepare('SELECT points FROM user_stats WHERE user_id=?').bind(user.id).first();const entry={name:user.nick,color:COLORS.includes(b.color)?b.color:COLORS[0],rankId:rankFor(Number(st?.points||0)).id,role:normalizeRole(user.role),text,ts:now(),system:false};
-  await env.DB.prepare('INSERT INTO chat_messages(user_id,nick,color,text,ts) VALUES(?,?,?,?,?)').bind(user.id,user.nick,entry.color,text,entry.ts).run();await env.DB.prepare('DELETE FROM chat_messages WHERE ts<? OR id NOT IN (SELECT id FROM chat_messages ORDER BY id DESC LIMIT 200)').bind(now()-GLOBAL_CHAT_RESET_MS).run();return json({ok:true,entry});
+  const st=await env.DB.prepare('SELECT points FROM user_stats WHERE user_id=?').bind(user.id).first();const entry={userId:user.id,name:user.nick,color:COLORS.includes(b.color)?b.color:COLORS[0],rankId:rankFor(Number(st?.points||0)).id,role:normalizeRole(user.role),text,ts:now(),system:false};
+  const inserted=await env.DB.prepare('INSERT INTO chat_messages(user_id,nick,color,text,ts) VALUES(?,?,?,?,?)').bind(user.id,user.nick,entry.color,text,entry.ts).run();entry.id=inserted.meta?.last_row_id;await env.DB.prepare('DELETE FROM chat_messages WHERE ts<? OR id NOT IN (SELECT id FROM chat_messages ORDER BY id DESC LIMIT 200)').bind(now()-GLOBAL_CHAT_RESET_MS).run();const cleanup=await getRoomDO(env,'__uor_lobby_presence__');const scheduled=await cleanup.fetch(new Request('https://uor-room/internal/schedule-chat-cleanup',{method:'POST',headers:internalHeaders(env,user.id),body:'{}'}));if(!scheduled.ok)throw new Error('Falha ao agendar limpeza do chat.');return json({ok:true,entry});
 }
 
 async function addGlobalSystemMessage(env,text,actor){
@@ -375,7 +471,7 @@ function stateSafeObjectivePool(players){return players.length>3?OBJECTIVE_POOL.
 function makeObjective(state,p,source){let pool=Array.isArray(source)&&source.length?source:OBJECTIVE_POOL.slice();if(!pool.length)pool=OBJECTIVE_POOL.slice();let o=structuredClone(pool[Math.floor(Math.random()*pool.length)]);if(o.type==='eliminate'){const targets=state.players.filter(x=>x.id!==p.id&&x.color);const target=targets[Math.floor(Math.random()*Math.max(1,targets.length))];o.targetColor=target?.color||'';o.text=o.text.replace('{COLOR}',target?.name||'Jogador');}return o;}
 function setLastAction(state,p,kind,data={}){if(!state)return null;const playerId=p?.id||p?.connId||null;state.lastAction={kind,byConnId:playerId,playerName:p?.name||'Jogador',ts:now(),...data};return state.lastAction;}
 function setTurnStartAction(state,p){if(p)setLastAction(state,p,'turnStart',{phase:state.phase});}
-function initGame(room){const settings=normalizeRoomSettings(room?.settings);const players=room.players.map(p=>({...p,id:p.id,connId:p.id,eliminated:false,conqueredThisTurn:false}));const ids=shuffle(TERRITORIES.map(t=>t.id));const terr={};ids.forEach((tid,i)=>terr[tid]={owner:players[i%players.length].id,armies:1});const setup={};const start=STARTING_ARMIES[players.length]||20;for(const p of players){const owned=Object.values(terr).filter(x=>x.owner===p.id).length;setup[p.id]=Math.max(0,start-owned);}const objectivePool=stateSafeObjectivePool(players);const objectiveDeck=shuffle(objectivePool.slice());const objectives={};players.forEach((p,i)=>objectives[p.id]=makeObjective({players},p,[objectiveDeck[i%objectiveDeck.length]]));const state={version:GAME_VERSION,roomId:room.id,roomName:room.name,maxPlayers:room.maxPlayers,hostConnId:room.hostConnId,settings,players,territories:terr,turnIndex:0,turnNumber:1,phase:'setup',setupRemaining:setup,reinforcementsRemaining:0,reinforcementStage:'free',continentBonusRemaining:{},pendingFreeReinforcements:0,objectives,deck:[],discardPile:[],hands:{},airAttackCards:{},airAttackPending:null,cardTradeCount:0,usedFortifyTerritories:[],fortifyLockedTerritories:[],pendingConquestTransfer:null,lastAttackAt:{},lastCombat:null,lastAction:{kind:'turnStart',byConnId:players[0]?.id||null,playerName:players[0]?.name||'Jogador',phase:'setup',ts:now()},playerStats:Object.fromEntries(players.map(p=>[p.id,{conquests:0,armiesDestroyed:0}])),log:['Distribuição inicial iniciada.'],winner:null,resultRecorded:false,startedAt:now(),updatedAt:now()};for(const p of players)state.hands[p.id]=[];state.deck=shuffle(TERRITORIES.map(t=>({id:`card_${t.id}`,territoryId:t.id,name:t.name,symbol:null})));return state;}
+function initGame(room){const settings=normalizeRoomSettings(room?.settings);const players=room.players.map(p=>({...p,id:p.id,connId:p.id,eliminated:false,conqueredThisTurn:false}));const ids=shuffle(TERRITORIES.map(t=>t.id));const terr={};ids.forEach((tid,i)=>terr[tid]={owner:players[i%players.length].id,armies:1});const setup={};const start=STARTING_ARMIES[players.length]||20;for(const p of players){const owned=Object.values(terr).filter(x=>x.owner===p.id).length;setup[p.id]=Math.max(0,start-owned);}const objectivePool=stateSafeObjectivePool(players);const objectiveDeck=shuffle(objectivePool.slice());const objectives={};players.forEach((p,i)=>objectives[p.id]=makeObjective({players},p,[objectiveDeck[i%objectiveDeck.length]]));const state={version:GAME_VERSION,roomId:room.id,roomName:room.name,maxPlayers:room.maxPlayers,hostConnId:room.hostConnId,settings,players,territories:terr,turnIndex:0,turnNumber:1,phase:'setup',setupRemaining:setup,reinforcementsRemaining:0,reinforcementStage:'free',continentBonusRemaining:{},pendingFreeReinforcements:0,objectives,deck:[],discardPile:[],hands:{},airAttackCards:{},airAttackPending:null,cardTradeCount:0,cardTradeStats:Object.fromEntries(players.map(p=>[p.id,{trades:0,lastReward:0,lastAt:0,airStored:0}])),usedFortifyTerritories:[],fortifyLockedTerritories:[],pendingConquestTransfer:null,lastAttackAt:{},lastCombat:null,lastAction:{kind:'turnStart',byConnId:players[0]?.id||null,playerName:players[0]?.name||'Jogador',phase:'setup',ts:now()},playerStats:Object.fromEntries(players.map(p=>[p.id,{conquests:0,armiesDestroyed:0}])),log:['Distribuição inicial iniciada.'],winner:null,annulled:false,finishedAt:null,resultRecorded:false,resultRecordError:null,startedAt:now(),updatedAt:now()};for(const p of players)state.hands[p.id]=[];state.deck=shuffle(TERRITORIES.map(t=>({id:`card_${t.id}`,territoryId:t.id,name:t.name,symbol:null})));return state;}
 function drawCard(state,id){const hand=state.hands?.[id]||[];const rules=normalizeRoomSettings(state?.settings);if(rules.cardLimit!=='unlimited'&&hand.length>=5)return null;if(!state.deck.length){if(!state.discardPile.length)return null;state.deck=shuffle(state.discardPile.splice(0));}const c=state.deck.pop();const hasAir=Number(state.airAttackCards?.[id]||0)>0 || hand.some(x=>x.symbol===AIR);c.symbol=(rules.airAttackEnabled&&!hasAir&&Math.random()<0.20)?AIR:CARD_SYMBOLS[Math.floor(Math.random()*3)];state.hands[id]=hand;state.hands[id].push(c);return c;}
 function validSet(cards){if(cards.length!==3)return false;const s=cards.map(c=>c.symbol);return s.every(x=>x===s[0])||new Set(s).size===3;}
 function tradeValue(state){const n=Number(state.cardTradeCount||0);return n<6?TRADE_VALUES[n]:15+(n-5)*5;}
@@ -396,9 +492,10 @@ function endTurn(state){
 }
 function resolveAttackCombat(state,p,fromId,toId,requestedDice){
  const t=state.territories,from=t[fromId],to=t[toId];
- if(!from||!to||from.owner!==p.id||to.owner===p.id||!adjacent(fromId,toId)||from.armies<2)return null;
+ if(!validTerritoryId(fromId)||!validTerritoryId(toId)||!from||!to||from.owner!==p.id||to.owner===p.id||!adjacent(fromId,toId)||!Number.isSafeInteger(from.armies)||!Number.isSafeInteger(to.armies)||from.armies<2||to.armies<1)return null;
  const maxDice=Math.min(3,from.armies-1);
- const dice=Math.max(1,Math.min(Number(requestedDice)||maxDice,maxDice));
+ let dice=maxDice;
+ if(requestedDice!==undefined&&requestedDice!==null){const requested=strictPositiveInt(requestedDice);if(!requested||requested>maxDice)return null;dice=requested;}
  const defDice=Math.min(3,to.armies);
  const ar=roll(dice).sort((x,y)=>y-x),dr=roll(defDice).sort((x,y)=>y-x);
  let al=0,dl=0;
@@ -437,60 +534,197 @@ function finalizeAirAttack(state){
  return state;
 }
 
-function applyAction(state,a){if(state.airAttackPending)return null;const p=state.players[state.turnIndex];if(!p||p.id!==a.byConnId||p.eliminated)return null;const t=state.territories;
- if(a.kind==='setupPlace'){if(state.phase!=='setup')return null;const rem=state.setupRemaining[p.id]||0,x=t[a.territoryId];if(!x||x.owner!==p.id||rem<=0)return null;const n=Math.max(1,Math.min(Number(a.amount)||1,rem));x.armies+=n;state.setupRemaining[p.id]-=n;setLastAction(state,p,'setupPlace',{territoryId:a.territoryId,amount:n,remaining:Number(state.setupRemaining[p.id]||0)});if(state.setupRemaining[p.id]===0)advanceSetup(state);return state;}
- if(a.kind==='reinforce'){if(state.phase!=='reforco')return null;ensureReinforcementState(state,p.id);if(state.reinforcementsRemaining<=0)return null;const x=t[a.territoryId];if(!x||x.owner!==p.id)return null;if((state.reinforcementStage||'free')==='continent'){const meta=TERRITORIES.find(z=>z.id===a.territoryId);const cid=meta?.continent;const available=Number(state.continentBonusRemaining?.[cid]||0);if(!cid||available<=0)return null;const n=Math.max(1,Math.min(Number(a.amount)||1,available,state.reinforcementsRemaining));x.armies+=n;state.continentBonusRemaining[cid]=available-n;state.reinforcementsRemaining-=n;setLastAction(state,p,'reinforce',{territoryId:a.territoryId,amount:n,remaining:Number(state.reinforcementsRemaining||0),continentId:cid,continentName:CONTINENTS[cid]?.name||''});finishContinentBonusStage(state);return state;}const n=Math.max(1,Math.min(Number(a.amount)||1,state.reinforcementsRemaining));x.armies+=n;state.reinforcementsRemaining-=n;setLastAction(state,p,'reinforce',{territoryId:a.territoryId,amount:n,remaining:Number(state.reinforcementsRemaining||0)});return state;}
- if(a.kind==='endReinforcePhase'){if(state.phase!=='reforco')return null;if((state.reinforcementStage||'free')==='continent')finishContinentBonusStage(state);if(state.reinforcementStage!=='free'||state.reinforcementsRemaining>0)return null;state.phase='ataque';setLastAction(state,p,'phaseChange',{from:'reforco',to:'ataque'});return state;}
- if(a.kind==='attack'){if(state.phase!=='ataque'||state.pendingConquestTransfer)return null;const from=t[a.fromId],to=t[a.toId];if(!from||!to||from.owner!==p.id||to.owner===p.id||!adjacent(a.fromId,a.toId)||from.armies<2)return null;const last=state.lastAttackAt[p.id]||0;if(now()-last<1000)return null;state.lastAttackAt[p.id]=now();const combat=resolveAttackCombat(state,p,a.fromId,a.toId,a.dice);if(!combat)return null;state.playerStats[p.id].armiesDestroyed+=combat.defLoss;if(combat.conquered){state.playerStats[p.id].conquests++;to.owner=p.id;to.armies=0;p.conqueredThisTurn=true;state.pendingConquestTransfer={fromId:a.fromId,toId:a.toId,maxTransfer:combat.dice};}state.lastCombat=combat;setLastAction(state,p,'attack',{fromId:a.fromId,toId:a.toId,dice:combat.dice,atkRolls:combat.atkRolls,defRolls:combat.defRolls,atkLoss:combat.atkLoss,defLoss:combat.defLoss,conquered:combat.conquered});state.log.push(`${p.name} atacou ${T[a.toId].name}: ${combat.atkRolls.join(',')} x ${combat.defRolls.join(',')}${combat.conquered?' — território conquistado!':''}`);checkElims(state);return state;}
- if(a.kind==='unitedAttack'){
-  if(state.phase!=='ataque'||state.pendingConquestTransfer)return null;
-  const targetId=a.toId,target=t[targetId],fromIds=Array.isArray(a.fromIds)?[...new Set(a.fromIds)]:[];
-  if(!target||target.owner===p.id||fromIds.length<2)return null;
-  const last=state.lastAttackAt[p.id]||0;if(now()-last<1000)return null;
-  for(const fromId of fromIds){const from=t[fromId];if(!from||from.owner!==p.id||from.armies<2||!adjacent(fromId,targetId))return null;}
-  const totalAvailable=fromIds.reduce((sum,id)=>sum+Math.max(0,(t[id]?.armies||0)-1),0);
-  if(totalAvailable<1)return null;
-  const dice=Math.min(3,totalAvailable);
-  const defDice=Math.min(3,target.armies);if(defDice<1)return null;
-  state.lastAttackAt[p.id]=now();
-  const atkRolls=roll(dice).sort((x,y)=>y-x),defRolls=roll(defDice).sort((x,y)=>y-x);
-  let atkLoss=0,defLoss=0;
-  for(let i=0;i<Math.min(atkRolls.length,defRolls.length);i++){if(atkRolls[i]>defRolls[i])defLoss++;else atkLoss++;}
-  const atkLossBySource={};let remainingLoss=atkLoss;
-  for(const fromId of fromIds){
-    const from=t[fromId],capacity=Math.max(0,(from.armies||0)-1),loss=Math.min(capacity,remainingLoss);
-    if(loss>0)from.armies-=loss;atkLossBySource[fromId]=loss;remainingLoss-=loss;if(remainingLoss<=0)break;
+function applyAction(state,a,trustedAi=false){
+ if(!state||!isPlainObject(a)||state.winner||state.annulled||state.finishedAt||state.resultRecorded||state.airAttackPending)return null;
+ const p=state.players?.[state.turnIndex];
+ if(!p||p.id!==a.byConnId||p.eliminated||(p.abandoned&&!trustedAi)||(trustedAi&&!p.aiControlled))return null;
+ const t=state.territories;
+ if(!t||!isPlainObject(t))return null;
+
+ if(a.kind==='setupPlace'){
+  if(state.phase!=='setup'||!validTerritoryId(a.territoryId))return null;
+  const rem=Number(state.setupRemaining?.[p.id]||0),x=t[a.territoryId],n=strictPositiveInt(a.amount);
+  if(!Number.isSafeInteger(rem)||rem<=0||!x||x.owner!==p.id||!Number.isSafeInteger(x.armies)||!n||n>rem)return null;
+  x.armies+=n;state.setupRemaining[p.id]-=n;
+  setLastAction(state,p,'setupPlace',{territoryId:a.territoryId,amount:n,remaining:Number(state.setupRemaining[p.id]||0)});
+  if(state.setupRemaining[p.id]===0)advanceSetup(state);
+  return state;
+ }
+ if(a.kind==='reinforce'){
+  if(state.phase!=='reforco'||!validTerritoryId(a.territoryId))return null;
+  ensureReinforcementState(state,p.id);
+  const remaining=Number(state.reinforcementsRemaining||0),x=t[a.territoryId],n=strictPositiveInt(a.amount);
+  if(!Number.isSafeInteger(remaining)||remaining<=0||!x||x.owner!==p.id||!Number.isSafeInteger(x.armies)||!n||n>remaining)return null;
+  if((state.reinforcementStage||'free')==='continent'){
+   const cid=T[a.territoryId]?.continent,available=Number(state.continentBonusRemaining?.[cid]||0);
+   if(!cid||!Number.isSafeInteger(available)||available<=0||n>available)return null;
+   x.armies+=n;state.continentBonusRemaining[cid]=available-n;state.reinforcementsRemaining-=n;
+   setLastAction(state,p,'reinforce',{territoryId:a.territoryId,amount:n,remaining:Number(state.reinforcementsRemaining||0),continentId:cid,continentName:CONTINENTS[cid]?.name||''});
+   finishContinentBonusStage(state);return state;
   }
-  if(remainingLoss>0)return null;
+  x.armies+=n;state.reinforcementsRemaining-=n;
+  setLastAction(state,p,'reinforce',{territoryId:a.territoryId,amount:n,remaining:Number(state.reinforcementsRemaining||0)});
+  return state;
+ }
+ if(a.kind==='endReinforcePhase'){
+  if(state.phase!=='reforco')return null;
+  if((state.reinforcementStage||'free')==='continent')finishContinentBonusStage(state);
+  if(state.reinforcementStage!=='free'||Number(state.reinforcementsRemaining||0)>0)return null;
+  state.phase='ataque';setLastAction(state,p,'phaseChange',{from:'reforco',to:'ataque'});return state;
+ }
+ if(a.kind==='attack'){
+  if(state.phase!=='ataque'||state.pendingConquestTransfer||!validTerritoryId(a.fromId)||!validTerritoryId(a.toId))return null;
+  const from=t[a.fromId],to=t[a.toId];
+  if(!from||!to||from.owner!==p.id||to.owner===p.id||!adjacent(a.fromId,a.toId)||!Number.isSafeInteger(from.armies)||!Number.isSafeInteger(to.armies)||from.armies<2||to.armies<1)return null;
+  const maxDice=Math.min(3,from.armies-1),requestedDice=strictPositiveInt(a.dice);
+  if(!requestedDice||requestedDice>maxDice)return null;
+  const last=Number(state.lastAttackAt?.[p.id]||0);if(now()-last<1000)return null;
+  const combat=resolveAttackCombat(state,p,a.fromId,a.toId,requestedDice);if(!combat)return null;
+  state.lastAttackAt[p.id]=now();
+  state.playerStats[p.id].armiesDestroyed+=combat.defLoss;
+  if(combat.conquered){state.playerStats[p.id].conquests++;to.owner=p.id;to.armies=0;p.conqueredThisTurn=true;state.pendingConquestTransfer={fromId:a.fromId,toId:a.toId,maxTransfer:combat.dice};}
+  state.lastCombat=combat;setLastAction(state,p,'attack',{fromId:a.fromId,toId:a.toId,dice:combat.dice,atkRolls:combat.atkRolls,defRolls:combat.defRolls,atkLoss:combat.atkLoss,defLoss:combat.defLoss,conquered:combat.conquered});
+  state.log.push(`${p.name} atacou ${T[a.toId].name}: ${combat.atkRolls.join(',')} x ${combat.defRolls.join(',')}${combat.conquered?' — território conquistado!':''}`);
+  checkElims(state);return state;
+ }
+ if(a.kind==='unitedAttack'){
+  if(state.phase!=='ataque'||state.pendingConquestTransfer||!validTerritoryId(a.toId))return null;
+  const targetId=a.toId,target=t[targetId],rawFromIds=Array.isArray(a.fromIds)?a.fromIds:[];
+  if(rawFromIds.some(id=>!validTerritoryId(id)))return null;
+  const fromIds=[...new Set(rawFromIds)];
+  if(!target||target.owner===p.id||!Number.isSafeInteger(target.armies)||target.armies<1||fromIds.length<2)return null;
+  const last=Number(state.lastAttackAt?.[p.id]||0);if(now()-last<1000)return null;
+  for(const fromId of fromIds){const from=t[fromId];if(!from||from.owner!==p.id||!Number.isSafeInteger(from.armies)||from.armies<2||!adjacent(fromId,targetId))return null;}
+  const totalAvailable=fromIds.reduce((sum,id)=>sum+Math.max(0,t[id].armies-1),0);if(totalAvailable<1)return null;
+  const dice=Math.min(3,totalAvailable),defDice=Math.min(3,target.armies);if(defDice<1)return null;
+  const atkRolls=roll(dice).sort((x,y)=>y-x),defRolls=roll(defDice).sort((x,y)=>y-x);
+  let atkLoss=0,defLoss=0;for(let i=0;i<Math.min(atkRolls.length,defRolls.length);i++){if(atkRolls[i]>defRolls[i])defLoss++;else atkLoss++;}
+  const capacities=fromIds.map(id=>Math.max(0,t[id].armies-1));if(capacities.reduce((a,b)=>a+b,0)<atkLoss)return null;
+  state.lastAttackAt[p.id]=now();
+  const atkLossBySource={};let remainingLoss=atkLoss;
+  for(let i=0;i<fromIds.length;i++){const fromId=fromIds[i],from=t[fromId],loss=Math.min(capacities[i],remainingLoss);if(loss>0)from.armies-=loss;atkLossBySource[fromId]=loss;remainingLoss-=loss;if(remainingLoss<=0)break;}
   const before=target.armies,after=Math.max(0,before-defLoss),conquered=after===0;target.armies=conquered?0:Math.max(1,after);
   state.playerStats[p.id].armiesDestroyed+=defLoss;
   if(conquered){state.playerStats[p.id].conquests++;target.owner=p.id;target.armies=0;p.conqueredThisTurn=true;state.pendingConquestTransfer={fromId:fromIds[0],fromIds,toId:targetId,maxTransfer:dice};}
   const combat={fromId:fromIds[0],fromIds,toId:targetId,atkRolls,defRolls,atkLoss,defLoss,atkLossBySource,conquered,dice,unitedAttack:true,ts:now()};
-  state.lastUnitedCombats=[combat];state.lastCombat=combat;
-  setLastAction(state,p,'unitedAttack',{fromIds,toId:targetId,dice,atkRolls,defRolls,atkLoss,defLoss,conquered});
+  state.lastUnitedCombats=[combat];state.lastCombat=combat;setLastAction(state,p,'unitedAttack',{fromIds,toId:targetId,dice,atkRolls,defRolls,atkLoss,defLoss,conquered});
   state.log.push(`${p.name} realizou um Ataque Unido contra ${T[targetId].name} com ${fromIds.length} país(es): ${fromIds.map(id=>T[id].name).join(', ')}${conquered?' — território conquistado!':''}`);
   checkElims(state);return state;
  }
  if(a.kind==='conquestTransfer'){
-  if(state.phase!=='ataque')return null;const q=state.pendingConquestTransfer;if(!q||q.fromId!==a.fromId||q.toId!==a.toId)return null;
-  const to=t[q.toId];if(!to||to.owner!==p.id)return null;
-  const sourceIds=Array.isArray(q.fromIds)&&q.fromIds.length?[...new Set(q.fromIds)]:[q.fromId];if(sourceIds[0]!==q.fromId)return null;
-  for(const id of sourceIds){const from=t[id];if(!from||from.owner!==p.id)return null;}
-  const totalAvailable=sourceIds.reduce((sum,id)=>sum+Math.max(0,(t[id].armies||0)-1),0);
-  const max=Math.min(3,Number(q.maxTransfer)||1,totalAvailable);const requested=Number(a.amount);if(!Number.isFinite(requested)||requested<1||max<1)return null;
-  const n=Math.max(1,Math.min(Math.floor(requested),max));let remaining=n;const distribution={};
-  for(const id of sourceIds){const from=t[id],capacity=Math.max(0,(from.armies||0)-1),take=Math.min(capacity,remaining);if(take>0)from.armies-=take;distribution[id]=take;remaining-=take;if(remaining<=0)break;}
-  if(remaining>0)return null;to.armies+=n;state.pendingConquestTransfer=null;state.lastCombat={...(state.lastCombat||{}),conquestTransfer:n,conquestTransferDistribution:distribution,conquestTransferOnly:true,ts:now()};setLastAction(state,p,'conquestTransfer',{fromIds:sourceIds,toId:q.toId,amount:n,distribution});return state;
+  if(state.phase!=='ataque'||!validTerritoryId(a.fromId)||!validTerritoryId(a.toId))return null;
+  const q=state.pendingConquestTransfer;if(!q||q.fromId!==a.fromId||q.toId!==a.toId)return null;
+  const to=t[q.toId];if(!to||to.owner!==p.id||!Number.isSafeInteger(to.armies))return null;
+  const sourceIds=Array.isArray(q.fromIds)&&q.fromIds.length?[...new Set(q.fromIds)]:[q.fromId];
+  if(sourceIds[0]!==q.fromId||sourceIds.some(id=>!validTerritoryId(id)))return null;
+  for(const id of sourceIds){const from=t[id];if(!from||from.owner!==p.id||!Number.isSafeInteger(from.armies)||from.armies<1)return null;}
+  const totalAvailable=sourceIds.reduce((sum,id)=>sum+Math.max(0,t[id].armies-1),0),max=Math.min(3,Number(q.maxTransfer)||1,totalAvailable),n=strictPositiveInt(a.amount);
+  if(!Number.isSafeInteger(max)||max<1||!n||n>max)return null;
+  let remaining=n;const distribution={};
+  for(const id of sourceIds){const from=t[id],capacity=Math.max(0,from.armies-1),take=Math.min(capacity,remaining);if(take>0)from.armies-=take;distribution[id]=take;remaining-=take;if(remaining<=0)break;}
+  if(remaining>0)return null;
+  to.armies+=n;state.pendingConquestTransfer=null;state.lastCombat={...(state.lastCombat||{}),conquestTransfer:n,conquestTransferDistribution:distribution,conquestTransferOnly:true,ts:now()};
+  setLastAction(state,p,'conquestTransfer',{fromIds:sourceIds,toId:q.toId,amount:n,distribution});return state;
  }
- if(a.kind==='airAttack'){if(!normalizeRoomSettings(state?.settings).airAttackEnabled)return null;if(state.phase!=='ataque'||state.pendingConquestTransfer||state.airAttackPending||(state.airAttackCards[p.id]||0)<=0)return null;const to=t[a.toId];if(!to||to.owner===p.id)return null;const last=state.lastAttackAt[p.id]||0;if(now()-last<1000)return null;state.lastAttackAt[p.id]=now();const destroyed=Number(to.armies||0),fromId=TERRITORIES.find(x=>t[x.id].owner===p.id&&x.id!==a.toId)?.id||null;state.airAttackPending={attackerId:p.id,toId:a.toId,fromId,startedAt:now(),destroyed};setLastAction(state,p,'airAttackStart',{toId:a.toId,fromId,destroyed});return state;}
- if(a.kind==='endAttackPhase'){if(state.phase!=='ataque'||state.pendingConquestTransfer)return null;state.phase='fortificacao';state.usedFortifyTerritories=[];state.fortifyLockedTerritories=[];setLastAction(state,p,'phaseChange',{from:'ataque',to:'fortificacao'});return state;}
- if(a.kind==='fortify'){if(state.phase!=='fortificacao')return null;const from=t[a.fromId],to=t[a.toId];if(!from||!to||from.owner!==p.id||to.owner!==p.id||!adjacent(a.fromId,a.toId)||from.armies<2)return null;const locked=state.fortifyLockedTerritories||[];if(locked.includes(a.fromId))return null;const n=Math.max(1,Math.min(Number(a.amount)||1,from.armies-1));from.armies-=n;to.armies+=n;if(!locked.includes(a.toId))locked.push(a.toId);state.fortifyLockedTerritories=locked;setLastAction(state,p,'fortify',{fromId:a.fromId,toId:a.toId,amount:n});return state;}
- if(a.kind==='endTurn'){if(state.phase!=='fortificacao'&&state.phase!=='ataque')return null;if(state.pendingConquestTransfer)return null;endTurn(state);return state;}
- if(a.kind==='exchangeCards'){if(state.phase!=='reforco')return null;const hand=state.hands[p.id]||[],ids=Array.isArray(a.cardIds)?a.cardIds:[];if(ids.length===1){const card=hand.find(c=>c.id===ids[0]);if(!normalizeRoomSettings(state?.settings).airAttackEnabled)return null;if(!card||card.symbol!==AIR)return null;if(Number(state.airAttackCards?.[p.id]||0)>=1)return null;state.hands[p.id]=hand.filter(c=>c.id!==card.id);state.airAttackCards[p.id]=1;state.lastCardExchange={by:p.id,cards:[card],reward:0,airAttackCreated:1,ts:now()};setLastAction(state,p,'airCard',{cardId:card.id});state.log.push(`${p.name} guardou um Ataque Aéreo nos Veículos de Combate.`);return state;}if(ids.length!==3||new Set(ids).size!==3)return null;const cards=ids.map(id=>hand.find(c=>c.id===id));if(cards.some(x=>!x)||!validSet(cards)||cards.some(c=>c.symbol===AIR))return null;state.hands[p.id]=hand.filter(c=>!ids.includes(c.id));state.discardPile.push(...cards);const reward=tradeValue(state);state.cardTradeCount++;if((state.reinforcementStage||'free')==='continent')state.pendingFreeReinforcements=(Number(state.pendingFreeReinforcements)||0)+reward;else state.reinforcementsRemaining+=reward;const bonusTerritoryIds=[];for(const c of cards){if(t[c.territoryId]?.owner===p.id){t[c.territoryId].armies+=2;bonusTerritoryIds.push(c.territoryId);}}state.lastCardExchange={by:p.id,cards,reward,ts:now()};setLastAction(state,p,'exchangeCards',{reward,bonusTerritoryIds});state.log.push(`${p.name} trocou 3 cartas por ${reward} exércitos.${bonusTerritoryIds.length?` Bônus em ${bonusTerritoryIds.map(id=>T[id]?.name||id).join(', ')}.`:''}`);return state;}
- return null;}
+ if(a.kind==='airAttack'){
+  if(!normalizeRoomSettings(state?.settings).airAttackEnabled||state.phase!=='ataque'||state.pendingConquestTransfer||state.airAttackPending||Number(state.airAttackCards?.[p.id]||0)<=0||!validTerritoryId(a.toId))return null;
+  const to=t[a.toId];if(!to||to.owner===p.id||!Number.isSafeInteger(to.armies)||to.armies<1)return null;
+  const last=Number(state.lastAttackAt?.[p.id]||0);if(now()-last<1000)return null;
+  const destroyed=to.armies,fromId=TERRITORIES.find(x=>t[x.id].owner===p.id&&x.id!==a.toId)?.id||null;
+  state.lastAttackAt[p.id]=now();state.airAttackPending={attackerId:p.id,toId:a.toId,fromId,startedAt:now(),destroyed};
+  setLastAction(state,p,'airAttackStart',{toId:a.toId,fromId,destroyed});return state;
+ }
+ if(a.kind==='endAttackPhase'){
+  if(state.phase!=='ataque'||state.pendingConquestTransfer)return null;
+  state.phase='fortificacao';state.usedFortifyTerritories=[];state.fortifyLockedTerritories=[];setLastAction(state,p,'phaseChange',{from:'ataque',to:'fortificacao'});return state;
+ }
+ if(a.kind==='fortify'){
+  if(state.phase!=='fortificacao'||!validTerritoryId(a.fromId)||!validTerritoryId(a.toId))return null;
+  const from=t[a.fromId],to=t[a.toId],n=strictPositiveInt(a.amount);
+  if(!from||!to||from.owner!==p.id||to.owner!==p.id||!adjacent(a.fromId,a.toId)||!Number.isSafeInteger(from.armies)||!Number.isSafeInteger(to.armies)||from.armies<2||!n||n>from.armies-1)return null;
+  const locked=state.fortifyLockedTerritories||[];if(locked.includes(a.fromId))return null;
+  from.armies-=n;to.armies+=n;if(!locked.includes(a.toId))locked.push(a.toId);state.fortifyLockedTerritories=locked;setLastAction(state,p,'fortify',{fromId:a.fromId,toId:a.toId,amount:n});return state;
+ }
+ if(a.kind==='endTurn'){
+  if(state.phase!=='fortificacao'&&state.phase!=='ataque'||state.pendingConquestTransfer)return null;
+  endTurn(state);return state;
+ }
+ if(a.kind==='exchangeCards'){
+  if(state.phase!=='reforco')return null;
+  const hand=state.hands?.[p.id]||[],ids=Array.isArray(a.cardIds)?a.cardIds:[];
+  if(ids.some(id=>typeof id!=='string'))return null;
+  state.cardTradeStats=state.cardTradeStats||{};
+  state.cardTradeStats[p.id]=state.cardTradeStats[p.id]||{trades:0,lastReward:0,lastAt:0,airStored:0};
+  if(ids.length===1){
+   const card=hand.find(c=>c.id===ids[0]);
+   if(!normalizeRoomSettings(state?.settings).airAttackEnabled||!card||card.symbol!==AIR||Number(state.airAttackCards?.[p.id]||0)>=1)return null;
+   state.hands[p.id]=hand.filter(c=>c.id!==card.id);state.airAttackCards[p.id]=1;
+   state.lastCardExchange={by:p.id,cards:[card],reward:0,airAttackCreated:1,ts:now()};
+   state.cardTradeStats[p.id].airStored=Number(state.cardTradeStats[p.id].airStored||0)+1;state.cardTradeStats[p.id].lastAt=now();
+   setLastAction(state,p,'airCard',{cardId:card.id});state.log.push(`${p.name} guardou um Ataque Aéreo nos Veículos de Combate.`);return state;
+  }
+  if(ids.length!==3||new Set(ids).size!==3)return null;
+  const cards=ids.map(id=>hand.find(c=>c.id===id));if(cards.some(x=>!x)||!validSet(cards)||cards.some(c=>c.symbol===AIR))return null;
+  state.hands[p.id]=hand.filter(c=>!ids.includes(c.id));state.discardPile.push(...cards);
+  const reward=tradeValue(state);state.cardTradeCount++;
+  if((state.reinforcementStage||'free')==='continent')state.pendingFreeReinforcements=Number(state.pendingFreeReinforcements||0)+reward;else state.reinforcementsRemaining+=reward;
+  const bonusTerritoryIds=[];for(const c of cards){const terr=t[c.territoryId];if(terr?.owner===p.id&&Number.isSafeInteger(terr.armies)){terr.armies+=2;bonusTerritoryIds.push(c.territoryId);}}
+  state.lastCardExchange={by:p.id,cards,reward,ts:now()};
+  state.cardTradeStats[p.id].trades=Number(state.cardTradeStats[p.id].trades||0)+1;state.cardTradeStats[p.id].lastReward=reward;state.cardTradeStats[p.id].lastAt=now();
+  setLastAction(state,p,'exchangeCards',{reward,bonusTerritoryIds});
+  state.log.push(`${p.name} trocou 3 cartas por ${reward} exércitos.${bonusTerritoryIds.length?` Bônus em ${bonusTerritoryIds.map(id=>T[id]?.name||id).join(', ')}.`:''}`);
+  return state;
+ }
+ return null;
+}
 
-async function recordResults(env,state){if(state.resultRecorded||(!state.winner&&!state.annulled))return;state.resultRecorded=true;const ts=now();const winner=state.winner;for(const p of state.players){const result=state.annulled?'annulled':p.abandoned?'abandon':p.id===winner?'win':'loss';const delta=(result==='win'||result==='loss')?10:0;const st=await env.DB.prepare('SELECT * FROM user_stats WHERE user_id=?').bind(p.id).first();if(!st)continue;let streak=Number(st.win_streak||0),best=Number(st.best_streak||0);streak=result==='win'?streak+1:0;best=Math.max(best,streak);const points=Math.max(0,Number(st.points||0)+delta);const rank=rankFor(points);const gamesAdd=result==='annulled'?0:1,winsAdd=result==='win'?1:0,lossesAdd=result==='loss'?1:0,abandonsAdd=result==='abandon'?1:0;await env.DB.prepare('UPDATE user_stats SET points=?,games=games+?,wins=wins+?,losses=losses+?,abandons=abandons+?,win_streak=?,best_streak=?,total_conquests=total_conquests+?,total_armies_destroyed=total_armies_destroyed+?,total_turns=total_turns+? WHERE user_id=?').bind(points,gamesAdd,winsAdd,lossesAdd,abandonsAdd,streak,best,Number(state.playerStats[p.id]?.conquests||0),Number(state.playerStats[p.id]?.armiesDestroyed||0),Number(state.turnNumber||0),p.id).run();const opponents=state.players.filter(x=>x.id!==p.id).map(x=>x.name);await env.DB.prepare('INSERT INTO match_history(id,user_id,room_id,room_name,result,finished_at,players_count,opponent_names,points_delta,rank_after) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(uuid(),p.id,state.roomId,state.roomName,result,ts,state.players.length,JSON.stringify(opponents),delta,rank.name).run();}
- const checks=await env.DB.prepare('SELECT u.id,s.* FROM user_stats s JOIN users u ON u.id=s.user_id WHERE s.user_id IN ('+state.players.map(()=>'?').join(',')+')').bind(...state.players.map(p=>p.id)).all();for(const s of checks.results||[]){const wins=Number(s.wins),games=Number(s.games),points=Number(s.points),ach=[];if(games>=1)ach.push('first_battle');if(wins>=1)ach.push('first_victory');if(wins>=5)ach.push('five_victories');if(wins>=10)ach.push('ten_victories');if(Number(s.win_streak)>=3)ach.push('streak_three');if(points>=100)ach.push('hundred_points');if(points>=1000)ach.push('thousand_points');if(rankFor(points).id==='general')ach.push('marshal');for(const a of ach)await env.DB.prepare('INSERT OR IGNORE INTO user_achievements(user_id,achievement_id,unlocked_at) VALUES(?,?,?)').bind(s.id,a,ts).run();}}
+let resultSchemaPromise=null;
+async function ensureResultSchema(env){
+ if(!resultSchemaPromise){
+  resultSchemaPromise=env.DB.prepare(`CREATE TABLE IF NOT EXISTS match_result_commits (room_id TEXT PRIMARY KEY, finished_at INTEGER NOT NULL)`).run().catch(e=>{resultSchemaPromise=null;throw e;});
+ }
+ return resultSchemaPromise;
+}
+async function recordResults(env,state){
+ if(!state||(!state.winner&&!state.annulled))return false;
+ try{
+  await ensureCommunitySchema(env);await ensureResultSchema(env);
+  const committed=await env.DB.prepare('SELECT room_id FROM match_result_commits WHERE room_id=?').bind(state.roomId).first();
+  if(committed){state.resultRecorded=true;state.resultRecordError=null;return true;}
+  const ts=Number(state.finishedAt||now()),winner=state.winner,ops=[];
+  for(const p of state.players){
+   const existing=await env.DB.prepare('SELECT id FROM match_history WHERE user_id=? AND room_id=? LIMIT 1').bind(p.id,state.roomId).first();
+   if(existing)continue;
+   const st=await env.DB.prepare('SELECT * FROM user_stats WHERE user_id=?').bind(p.id).first();
+   if(!st)continue;
+   const result=p.abandoned?'abandon':state.annulled?'annulled':p.id===winner?'win':'loss';
+   const delta=result==='win'?10:(result==='abandon'?-6:0);
+   let streak=Number(st.win_streak||0),best=Number(st.best_streak||0);streak=result==='win'?streak+1:0;best=Math.max(best,streak);
+   const points=Math.max(0,Number(st.points||0)+delta),rank=rankFor(points);
+   const gamesAdd=result==='annulled'?0:1,winsAdd=result==='win'?1:0,lossesAdd=result==='loss'?1:0,abandonsAdd=result==='abandon'?1:0;
+   ops.push(env.DB.prepare('UPDATE user_stats SET points=MAX(0,points+?),games=games+?,wins=wins+?,losses=losses+?,abandons=abandons+?,win_streak=CASE WHEN ?=1 THEN win_streak+1 ELSE 0 END,best_streak=MAX(best_streak,CASE WHEN ?=1 THEN win_streak+1 ELSE 0 END),total_conquests=total_conquests+?,total_armies_destroyed=total_armies_destroyed+?,total_turns=total_turns+? WHERE user_id=? AND NOT EXISTS(SELECT 1 FROM match_result_commits WHERE room_id=?) AND NOT EXISTS(SELECT 1 FROM user_deletion_requests WHERE user_id=?)').bind(delta,gamesAdd,winsAdd,lossesAdd,abandonsAdd,winsAdd,winsAdd,Number(state.playerStats?.[p.id]?.conquests||0),Number(state.playerStats?.[p.id]?.armiesDestroyed||0),Number(state.turnNumber||0),p.id,state.roomId,p.id));
+   const opponents=state.players.filter(x=>x.id!==p.id).map(x=>x.name);
+   ops.push(env.DB.prepare(`INSERT OR IGNORE INTO match_history(id,user_id,room_id,room_name,result,finished_at,players_count,opponent_names,points_delta,rank_after) SELECT ?,?,?,?,?,?,?,?,?,(SELECT CASE WHEN points>=8000 THEN 'General' WHEN points>=5500 THEN 'Coronel' WHEN points>=3500 THEN 'Tenente-Coronel' WHEN points>=2000 THEN 'Major' WHEN points>=1000 THEN 'Capitão' WHEN points>=500 THEN 'Tenente' WHEN points>=300 THEN 'Sargento' WHEN points>=100 THEN 'Cabo' ELSE 'Soldado' END FROM user_stats WHERE user_id=?) WHERE NOT EXISTS(SELECT 1 FROM match_result_commits WHERE room_id=?) AND NOT EXISTS(SELECT 1 FROM user_deletion_requests WHERE user_id=?)`).bind(`result:${state.roomId}:${p.id}`,p.id,state.roomId,state.roomName,result,ts,state.players.length,JSON.stringify(opponents),delta,p.id,state.roomId,p.id));
+  }
+  ops.push(env.DB.prepare('INSERT OR IGNORE INTO match_result_commits(room_id,finished_at) VALUES(?,?)').bind(state.roomId,ts));
+  await env.DB.batch(ops);
+  state.resultRecorded=true;state.resultRecordError=null;
+  try{
+   const checks=await env.DB.prepare('SELECT u.id,s.* FROM user_stats s JOIN users u ON u.id=s.user_id WHERE s.user_id IN ('+state.players.map(()=>'?').join(',')+')').bind(...state.players.map(p=>p.id)).all();
+   const achievementOps=[];
+   for(const s of checks.results||[]){
+    const wins=Number(s.wins),games=Number(s.games),points=Number(s.points),ach=[];
+    if(games>=1)ach.push('first_battle');if(wins>=1)ach.push('first_victory');if(wins>=5)ach.push('five_victories');if(wins>=10)ach.push('ten_victories');if(Number(s.win_streak)>=3)ach.push('streak_three');if(points>=100)ach.push('hundred_points');if(points>=1000)ach.push('thousand_points');if(rankFor(points).id==='general')ach.push('marshal');
+    for(const a of ach)achievementOps.push(env.DB.prepare('INSERT OR IGNORE INTO user_achievements(user_id,achievement_id,unlocked_at) VALUES(?,?,?)').bind(s.id,a,ts));
+   }
+   if(achievementOps.length)await env.DB.batch(achievementOps);
+  }catch(e){console.error('UOR achievements after result error',e);}
+  return true;
+ }catch(e){
+  state.resultRecorded=false;state.resultRecordError=String(e?.message||e).slice(0,240);state.resultRecordRetryAt=now()+RESULT_RETRY_MS;
+  console.error('UOR atomic result error',e);return false;
+ }
+}
 
 function chooseAiAction(state,pid){
   const p=state.players.find(x=>x.id===pid);if(!p||p.eliminated||!p.aiControlled||state.players[state.turnIndex]?.id!==pid)return null;
@@ -554,12 +788,14 @@ function chooseAiFallbackAction(state,pid){
   return null;
 }
 export class UORRoom {
- constructor(state,env){this.state=state;this.env=env;this.sockets=new Map();this.spectators=new Set();this.presenceSockets=new Map();this.presenceUsers=new Map();this.state.blockConcurrencyWhile(async()=>{this.room=await this.state.storage.get('room')||null;if(this.room)this.room.settings=normalizeRoomSettings(this.room.settings);this.game=await this.state.storage.get('game')||null;if(this.game){normalizeObjectives(this.game);if(!this.game.lastAction){const cp=this.game.players?.[this.game.turnIndex];if(cp)setTurnStartAction(this.game,cp);}if(this.game.phase==='reforco'&&(!Object.prototype.hasOwnProperty.call(this.game,'continentBonusRemaining')||!Object.prototype.hasOwnProperty.call(this.game,'reinforcementStage'))){const cp=this.game.players?.[this.game.turnIndex];if(cp)beginReinforcementPhase(this.game,cp.id);}await this.state.storage.put('game',this.game);}});}
- async persist(){await this.state.storage.put('room',this.room);await this.state.storage.put('game',this.game);}
+ constructor(state,env){this.state=state;this.env=env;this.sockets=new Map();this.userBlocks=new Map();this.chatLastSent=new Map();this.mutationTail=Promise.resolve();this.spectators=new Set();this.presenceSockets=new Map();this.presenceUsers=new Map();this.state.blockConcurrencyWhile(async()=>{this.room=await this.state.storage.get('room')||null;if(this.room)this.room.settings=normalizeRoomSettings(this.room.settings);this.game=await this.state.storage.get('game')||null;if(this.game){normalizeObjectives(this.game);this.game.cardTradeStats=this.game.cardTradeStats||Object.fromEntries((this.game.players||[]).map(p=>[p.id,{trades:0,lastReward:0,lastAt:0,airStored:0}]));if(!this.game.lastAction){const cp=this.game.players?.[this.game.turnIndex];if(cp)setTurnStartAction(this.game,cp);}if(this.game.phase==='reforco'&&(!Object.prototype.hasOwnProperty.call(this.game,'continentBonusRemaining')||!Object.prototype.hasOwnProperty.call(this.game,'reinforcementStage'))){const cp=this.game.players?.[this.game.turnIndex];if(cp)beginReinforcementPhase(this.game,cp.id);}await this.state.storage.put('game',this.game);}});}
+ async saveChatEvidence(entry){const entries=await this.state.storage.get('chatEvidence')||[];entries.push(entry);await this.state.storage.put('chatEvidence',entries.slice(-100));}
+ async persist(){await this.state.storage.put('room',this.room);await this.state.storage.put('game',this.game);if(!this.room)await this.state.storage.delete('chatEvidence');}
  async roomForPublic(){if(!this.room)return null;this.room.settings=normalizeRoomSettings(this.room.settings);return {id:this.room.id,name:this.room.name,maxPlayers:this.room.maxPlayers,hostConnId:this.room.hostConnId,players:this.room.players,settings:this.room.settings,gameActive:!!this.game,version:GAME_VERSION,updatedAt:now()};}
  gameStateForClient(state,uid,spectator=false){
   if(!state)return state;
-  const safe=structuredClone(state),finished=!!safe.winner||!!safe.resultRecorded;
+  const safe=structuredClone(state),finished=!!safe.winner||!!safe.resultRecorded||!!safe.annulled;
+  safe.handCounts=Object.fromEntries((state.players||[]).map(p=>[p.id,Array.isArray(state.hands?.[p.id])?state.hands[p.id].length:0]));
   delete safe.deck;delete safe.discardPile;delete safe.lastAttackAt;
   if(spectator){delete safe.hands;delete safe.objectives;delete safe.reconnectCodes;delete safe.airAttackCards;return safe;}
   safe.hands={[uid]:structuredClone(state.hands?.[uid]||[])};
@@ -568,10 +804,58 @@ export class UORRoom {
   safe.objectives=finished?structuredClone(state.objectives||{}):(state.objectives?.[uid]?{[uid]:structuredClone(state.objectives[uid])}:{});
   return safe;
  }
- broadcast(msg){for(const [uid,ws] of this.sockets.entries()){try{const spectator=this.spectators.has(uid);let out=msg;if(msg?.state)out={...msg,state:this.gameStateForClient(msg.state,uid,spectator)};else if(msg?.payload?.state)out={...msg,payload:{...msg.payload,state:this.gameStateForClient(msg.payload.state,uid,spectator)}};ws.send(JSON.stringify(out));}catch{}}}
+ broadcast(msg){for(const [uid,ws] of this.sockets.entries()){try{const entry=msg?.payload?.entry||msg?.entry;if(entry?.userId&&this.userBlocks.get(uid)?.has(entry.userId))continue;const spectator=this.spectators.has(uid);let out=msg;if(msg?.state)out={...msg,state:this.gameStateForClient(msg.state,uid,spectator)};else if(msg?.payload?.state)out={...msg,payload:{...msg.payload,state:this.gameStateForClient(msg.payload.state,uid,spectator)}};ws.send(JSON.stringify(out));}catch{}}}
  broadcastPresence(){const users=[...this.presenceUsers.values()].sort((a,b)=>a.nick.localeCompare(b.nick,'pt-BR',{sensitivity:'base'}));const raw=JSON.stringify({type:'presence_snapshot',users});for(const set of this.presenceSockets.values())for(const ws of set)try{ws.send(raw)}catch{}}
  async presenceSocketClosed(uid,ws){const set=this.presenceSockets.get(uid);if(!set||!set.has(ws))return;set.delete(ws);if(set.size===0){this.presenceSockets.delete(uid);this.presenceUsers.delete(uid);this.broadcastPresence();}}
- async fetch(req){const url=new URL(req.url),path=url.pathname;
+ async serializedMutation(fn){const job=this.mutationTail.then(fn);this.mutationTail=job.catch(()=>{});return job;}
+ async fetch(req){return this.serializedMutation(()=>this.fetchUnlocked(req));}
+ async onMessage(uid,ws,e){return this.serializedMutation(()=>this.onMessageUnlocked(uid,ws,e));}
+ async onClose(uid,ws){return this.serializedMutation(()=>this.onCloseUnlocked(uid,ws));}
+ async alarm(){return this.serializedMutation(()=>this.alarmUnlocked());}
+ async fetchUnlocked(req){const url=new URL(req.url),path=url.pathname;
+  if(path.endsWith('/internal/schedule-chat-cleanup')){
+   if(req.headers.get('x-uor-internal-key')!==String(this.env.UOR_ADMIN_KEY||''))return json({ok:false},403);
+   const ts=now(),existing=Number(await this.state.storage.get('lobbyChatNextCleanupAt')||0),due=existing>0?Math.max(ts+250,Math.min(existing,ts+GLOBAL_CHAT_RESET_MS)):ts+GLOBAL_CHAT_RESET_MS;
+   await this.state.storage.put('lobbyChatCleanup',true);await this.state.storage.put('lobbyChatNextCleanupAt',due);await this.state.storage.setAlarm(due);return json({ok:true});
+  }
+  if(path.endsWith('/internal/blocks-updated')){
+   if(req.headers.get('x-uor-internal-key')!==String(this.env.UOR_ADMIN_KEY||''))return json({ok:false},403);
+   const uid=req.headers.get('x-uor-user');if(this.sockets.has(uid))this.userBlocks.set(uid,await blockedUsers(this.env,uid));return json({ok:true});
+  }
+  if(path.endsWith('/internal/report-evidence')){
+   if(req.headers.get('x-uor-internal-key')!==String(this.env.UOR_ADMIN_KEY||''))return json({ok:false},403);
+   const uid=req.headers.get('x-uor-user'),u=await this.env.DB.prepare('SELECT role FROM users WHERE id=?').bind(uid).first();
+   if(!this.room?.players?.some(p=>p.id===uid)&&!isStaffOrAdmin(u))return json({ok:false},403);
+   const b=await body(req),entries=await this.state.storage.get('chatEvidence')||[];
+   const entry=entries.find(x=>x.id===b.messageId&&x.userId===b.targetId);
+   return entry?json({ok:true,entry}):json({ok:false},404);
+  }
+  if(path.endsWith('/internal/account-deleted')){
+   if(req.headers.get('x-uor-internal-key')!==String(this.env.UOR_ADMIN_KEY||''))return json({ok:false},403);
+   const uid=req.headers.get('x-uor-user');
+   if(!uid||!await this.env.DB.prepare('SELECT user_id FROM user_deletion_requests WHERE user_id=?').bind(uid).first())return json({ok:false},403);
+   const b=await body(req),nick=String(b.nick||''),newId='deleted:'+uuid();
+   const ws=this.sockets.get(uid);this.sockets.delete(uid);if(ws)try{ws.close(4004,'account_deleted');}catch{}
+   const set=this.presenceSockets.get(uid);this.presenceSockets.delete(uid);this.presenceUsers.delete(uid);if(set)for(const socket of set)try{socket.close(4004,'account_deleted');}catch{}
+   this.userBlocks.delete(uid);this.spectators.delete(uid);this.broadcastPresence();
+   const scrub=v=>typeof v==='string'?(v===uid?newId:v):Array.isArray(v)?v.map(scrub):v&&typeof v==='object'?Object.fromEntries(Object.entries(v).map(([k,x])=>[k===uid?newId:k,scrub(x)])):v;
+   const p=this.game?.players?.find(x=>x.id===uid);
+   if(p){p.name='Jogador excluído';p.role='PLAYER';p.accountDeleted=true;p.abandoned=true;p.aiControlled=true;p.connectionStatus='abandoned';p.kickActive=false;p.kickUntil=0;p.reconnectUntil=0;}
+   if(this.game){
+    this.game=scrub(this.game);
+    if(nick){this.game.log=(this.game.log||[]).map(x=>String(x).split(nick).join('Jogador excluído'));this.game.roomName=String(this.game.roomName||'Sala UOR').split(nick).join('Jogador excluído');for(const o of Object.values(this.game.objectives||{}))if(o.text)o.text=o.text.split(nick).join('Jogador excluído');}
+    if(this.game.lastAction?.byConnId===newId)this.game.lastAction.playerName='Jogador excluído';
+   }
+   if(this.room){
+    const rid=this.room.id;
+    if(this.game){this.room=scrub(this.room);for(const rp of this.room.players||[])if(rp.id===newId){rp.name='Jogador excluído';rp.role='PLAYER';}if(nick)this.room.name=this.room.name.split(nick).join('Jogador excluído');const next=this.game.players.find(x=>!x.accountDeleted&&!x.abandoned&&!x.eliminated)||this.game.players.find(x=>!x.accountDeleted);if(this.room.hostConnId===newId&&next){this.room.hostConnId=next.id;this.game.hostConnId=next.id;}}
+    else {this.room.players=this.room.players.filter(x=>x.id!==uid);if(this.room.hostConnId===uid)this.room.hostConnId=this.room.players[0]?.id;if(!this.room.players.length)this.room=null;else if(nick)this.room.name=this.room.name.split(nick).join('Jogador excluído');}
+    await this.persist();if(this.game)await this.closeIfOnlyAiAfterGrace();if(this.room)await syncRoomRow(this.env,rid,await this.roomForPublic());else await this.env.DB.prepare('DELETE FROM rooms WHERE id=?').bind(rid).run();
+   }
+   const evidence=await this.state.storage.get('chatEvidence')||[];await this.state.storage.put('chatEvidence',evidence.filter(x=>x.userId!==uid));
+   this.broadcast({type:'account_data_removed',userId:uid,nick});if(this.game)this.broadcast({type:'game_state_sync',state:this.game});if(this.room)this.broadcast({type:'room_state',room:await this.roomForPublic()});
+   await this.closeIfOnlyAiAfterGrace();await this.scheduleNextAlarm();return json({ok:true});
+  }
   if(path==='/ws/lobby'){if(req.headers.get('Upgrade')!=='websocket')return new Response('WebSocket required',{status:426});await this.state.storage.put('lobbyChatCleanup',true);let nextCleanup=Number(await this.state.storage.get('lobbyChatNextCleanupAt')||0);if(nextCleanup<=now()){nextCleanup=now()+GLOBAL_CHAT_RESET_MS;await this.state.storage.put('lobbyChatNextCleanupAt',nextCleanup);}try{await this.state.storage.setAlarm(nextCleanup)}catch{}const uid=req.headers.get('x-uor-user');const nick=String(req.headers.get('x-uor-name')||'Jogador').slice(0,24);const color=String(req.headers.get('x-uor-color')||'crimson');if(!uid)return new Response('Unauthorized',{status:401});const st=await this.env.DB.prepare('SELECT points,role FROM user_stats s JOIN users u ON u.id=s.user_id WHERE s.user_id=?').bind(uid).first();const rankId=rankFor(Number(st?.points||0)).id;const role=normalizeRole(st?.role);const pair=new WebSocketPair(),client=pair[0],server=pair[1];server.accept();let set=this.presenceSockets.get(uid);if(!set){set=new Set();this.presenceSockets.set(uid,set);}set.add(server);this.presenceUsers.set(uid,{id:uid,nick,color,rankId,role});server.addEventListener('close',()=>{this.presenceSocketClosed(uid,server)});server.addEventListener('error',()=>{this.presenceSocketClosed(uid,server)});server.send(JSON.stringify({type:'presence_snapshot',users:[...this.presenceUsers.values()].sort((a,b)=>a.nick.localeCompare(b.nick,'pt-BR',{sensitivity:'base'}))}));this.broadcastPresence();return new Response(null,{status:101,webSocket:client});}
   if(path.endsWith('/internal/user-role-updated')){if(req.headers.get('x-uor-internal-key')!==String(this.env.UOR_ADMIN_KEY||''))return json({ok:false,error:'Internal key inválida.'},403);const actorId=req.headers.get('x-uor-user');const actor=actorId?await this.env.DB.prepare('SELECT id,role FROM users WHERE id=?').bind(actorId).first():null;if(!actor||!isStaffOrAdmin(actor))return json({ok:false,error:'Sem permissão.'},403);const b=await body(req),targetId=String(b.targetId||'').trim(),role=normalizeRole(b.role);if(this.room?.players)for(const p of this.room.players)if(p.id===targetId)p.role=role;if(this.game?.players)for(const p of this.game.players)if(p.id===targetId)p.role=role;if(this.room||this.game){await this.persist();if(this.room)this.broadcast({type:'room_state',room:await this.roomForPublic()});if(this.game)this.broadcast({type:'game_state_sync',state:this.game});}const presenceSet=this.presenceSockets.get(targetId);if(presenceSet)for(const ws of presenceSet)try{ws.send(JSON.stringify({type:'role_updated',role}));}catch{}const roomWs=this.sockets.get(targetId);if(roomWs)try{roomWs.send(JSON.stringify({type:'role_updated',role}));}catch{}if(!this.room&&!this.game){const u=this.presenceUsers.get(targetId);if(u)u.role=role;this.broadcastPresence();}return json({ok:true});}
   if(path.endsWith('/internal/moderation-event')){if(req.headers.get('x-uor-internal-key')!==String(this.env.UOR_ADMIN_KEY||''))return json({ok:false,error:'Internal key inválida.'},403);const actorId=req.headers.get('x-uor-user');const actor=actorId?await this.env.DB.prepare('SELECT id,role FROM users WHERE id=?').bind(actorId).first():null;if(!actor||!isStaffOrAdmin(actor))return json({ok:false,error:'Sem permissão.'},403);const b=await body(req);const targetId=String(b.targetId||'').trim();if(!targetId)return json({ok:false,error:'Jogador inválido.'},400);const targetNick=String(b.targetNick||'Jogador').slice(0,24);const kind=b.kind==='unmute'?'unmute':'mute';const text=kind==='mute'?`${targetNick} foi silenciado por 30 minutos.`:`O silêncio de ${targetNick} foi removido.`;this.broadcast({type:'room_relay',roomId:this.room?.id,payload:{type:'moderation_system',entry:{name:'Sistema',text,ts:now(),system:true}}});return json({ok:true});}
@@ -581,125 +865,212 @@ export class UORRoom {
     const b=await body(req),targetId=String(b.targetId||'').trim(),targetNick=String(b.targetNick||'Jogador').slice(0,24),actorNick=String(b.actorNick||actor.nick||'Membro da equipe').slice(0,24),actorRole=normalizeRole(b.actorRole||actor.role),minutes=[0,5,10,20,30].includes(Number(b.minutes))?Number(b.minutes):0,expiresAt=Number(b.expiresAt||0),notice={type:'kick_notice',targetNick,actorNick,actorRole,minutes,expiresAt,ts:now()};
     let delivered=0;
     const set=this.presenceSockets.get(targetId);if(set){for(const ws of set){try{ws.send(JSON.stringify(notice));delivered++;}catch{}try{ws.close(4003,'kicked');}catch{}}this.presenceSockets.delete(targetId);this.presenceUsers.delete(targetId);this.broadcastPresence();}
-    const p=this.game?.players?.find(x=>x.id===targetId);if(p){if(minutes>0){p.kickActive=true;p.kickUntil=expiresAt;p.aiControlled=true;p.connectionStatus='kicked';p.disconnectAt=now();p.reconnectUntil=expiresAt;this.game.log.push(`${p.name} recebeu Kick de ${minutes} minutos por ${actorRole} ${actorNick}.`);}else{p.kickActive=false;p.kickUntil=0;}await this.persist();this.broadcast({type:'game_state_sync',state:this.game});}
+    const p=this.game?.players?.find(x=>x.id===targetId);if(p){if(minutes>0){p.kickActive=true;p.kickUntil=expiresAt;p.aiControlled=true;p.connectionStatus='kicked';p.disconnectAt=now();p.reconnectUntil=expiresAt;this.game.log.push(`${p.name} recebeu Kick de ${minutes} minutos por ${actorRole} ${actorNick}. A IA continuará jogando durante o Kick.`);}else{p.kickActive=false;p.kickUntil=0;}await this.persist();this.broadcast({type:'game_state_sync',state:this.game});}
     const roomWs=this.sockets.get(targetId);if(roomWs){try{roomWs.send(JSON.stringify(notice));delivered++;}catch{}try{roomWs.close(4003,'kicked');}catch{}this.sockets.delete(targetId);}
-    await this.persist();return json({ok:true,delivered});
+    await this.persist();await this.scheduleNextAlarm();return json({ok:true,delivered});
   }
   if(path.endsWith('/internal/init')){const b=await body(req);this.room={...b,settings:normalizeRoomSettings(b.settings),hostConnId:b.hostConnId||b.players?.[0]?.id||null};await this.persist();return json({ok:true});}
   if(path.endsWith('/internal/join')){if(this.game)return json({ok:false,error:'A partida já começou.'},409);const b=await body(req),uid=b.userId;if(!this.room)return json({ok:false,error:'Sala inexistente.'},404);if(this.room.players.some(p=>p.id===uid))return json({ok:true,room:await this.roomForPublic(),assignedColor:this.room.players.find(p=>p.id===uid).color});if(this.room.players.length>=this.room.maxPlayers)return json({ok:false,error:'Sala cheia, jogador.'},409);const used=this.room.players.map(p=>p.color),color=COLORS.includes(b.color)&&!used.includes(b.color)?b.color:COLORS.find(c=>!used.includes(c))||COLORS[0];this.room.players.push({id:uid,connId:uid,name:String(b.name||'Jogador').slice(0,24),color,rankId:String(b.rankId||'soldado'),role:normalizeRole(b.role),ready:false,eliminated:false});await this.persist();this.broadcast({type:'room_state',room:await this.roomForPublic()});return json({ok:true,room:await this.roomForPublic(),assignedColor:color});}
   if(path.endsWith('/internal/status')){const uid=req.headers.get('x-uor-user');if(!this.game||!this.room)return json({ok:true,active:false});const p=this.game.players.find(x=>x.id===uid);if(!p)return json({ok:true,active:false});return json({ok:true,active:true,room:await this.roomForPublic(),state:this.gameStateForClient(this.game,uid,false),player:{id:p.id,name:p.name,aiControlled:!!p.aiControlled,abandoned:!!p.abandoned,reconnectUntil:Number(p.reconnectUntil||0),remainingMs:Math.max(0,Number(p.reconnectUntil||0)-now())}});}
-  if(path.endsWith('/internal/reconnect')){const uid=req.headers.get('x-uor-user');if(!this.game||!this.room)return json({ok:false,error:'Nenhuma partida em andamento.'},404);const p=this.game.players.find(x=>x.id===uid);if(!p)return json({ok:false,error:'Você não pertence mais a esta partida.'},403);if(p.abandoned)return json({ok:false,error:'Você confirmou o abandono desta partida e não pode retornar.'},403);if(p.kickActive){if(Number(p.kickUntil||0)>now())return json({ok:false,error:`Você ainda está em Kick por ${formatMsClock(Number(p.kickUntil)-now())}.`},403);p.kickActive=false;p.kickUntil=0;p.aiControlled=false;p.connectionStatus='online';p.disconnectAt=null;p.reconnectUntil=null;await this.persist();this.broadcast({type:'game_state_sync',state:this.game});return json({ok:true,room:await this.roomForPublic(),state:this.gameStateForClient(this.game,uid,false)});}if(Number(p.reconnectUntil||0)&&Number(p.reconnectUntil)<=now())return json({ok:false,error:'O tempo de reconexão terminou. A deserção foi registrada.'},403);p.aiControlled=false;p.connectionStatus='online';p.disconnectAt=null;p.reconnectUntil=null;await this.persist();this.broadcast({type:'game_state_sync',state:this.game});return json({ok:true,room:await this.roomForPublic(),state:this.gameStateForClient(this.game,uid,false)});}
-  if(path.endsWith('/internal/leave')){const uid=req.headers.get('x-uor-user');if(!this.room)return json({ok:true,deleted:true});if(this.game){const p=this.game.players.find(x=>x.id===uid);if(!p)return json({ok:false,error:'Jogador não encontrado.'},404);if(this.game.winner||this.game.resultRecorded){const closed=await this.closeFinishedRoom();return json({ok:true,deleted:!!closed,finished:true});}if(p.abandoned)return json({ok:true,room:await this.roomForPublic(),abandoned:true});const suspension=await applyDesertionSuspension(this.env,uid);p.abandoned=true;p.aiControlled=true;p.connectionStatus='abandoned';p.disconnectAt=now();p.reconnectUntil=0;p.logLabel='Desertou';this.sockets.get(uid)?.close(1000,'abandon');this.sockets.delete(uid);p.eliminated=false;this.game.log.push(`${p.name} abandonou a partida.`);await this.persist();await syncRoomRow(this.env,this.room.id,await this.roomForPublic());this.broadcast({type:'game_state_sync',state:this.game});return json({ok:true,room:await this.roomForPublic(),abandoned:true,suspension});}this.sockets.get(uid)?.close(1000,'leave');this.sockets.delete(uid);this.room.players=this.room.players.filter(p=>p.id!==uid);if(!this.room.players.length){this.room=null;this.game=null;await this.persist();return json({ok:true,deleted:true});}if(this.room.hostConnId===uid)this.room.hostConnId=this.room.players[0].id;await this.persist();this.broadcast({type:'room_state',room:await this.roomForPublic()});return json({ok:true,room:await this.roomForPublic()});}
-  if(path==='/ws' || path.startsWith('/ws')){if(req.headers.get('Upgrade')!=='websocket')return new Response('WebSocket required',{status:426});const uid=req.headers.get('x-uor-user');if(!uid||!this.room)return new Response('Unauthorized',{status:401});const isSpectator=req.headers.get('x-uor-spectator')==='1';if(isSpectator){const u=await this.env.DB.prepare('SELECT id,role FROM users WHERE id=?').bind(uid).first();if(!u||!isStaffOrAdmin(u))return new Response('Acesso de espectador permitido apenas para STAFF/ADMIN.',{status:403});if(this.game?.players?.some(p=>p.id===uid||p.connId===uid))return new Response('Este cargo já participa desta partida.',{status:409});this.spectators.add(uid);}else{this.spectators.delete(uid);if(this.game){const p=this.game.players.find(x=>x.id===uid);if(!p||p.abandoned)return new Response('Forbidden',{status:403});p.aiControlled=false;p.connectionStatus='online';p.disconnectAt=null;p.reconnectUntil=null;await this.persist();}else if(!this.room.players?.some(p=>p.id===uid)){return new Response('Forbidden',{status:403});}}const publicRoom=await this.roomForPublic();const pair=new WebSocketPair(),client=pair[0],server=pair[1];server.accept();this.sockets.set(uid,server);if(this.game&&!isSpectator){const gp=this.game.players.find(x=>x.id===uid);if(gp)gp.lastSeenAt=now();}server.addEventListener('message',e=>this.onMessage(uid,server,e));server.addEventListener('close',()=>this.onClose(uid,server));server.send(JSON.stringify({type:'room_state',room:publicRoom}));if(this.game)server.send(JSON.stringify({type:'game_state_sync',state:this.gameStateForClient(this.game,uid,isSpectator)}));this.scheduleNextAlarm();return new Response(null,{status:101,webSocket:client});}
+  if(path.endsWith('/internal/reconnect')){
+   const uid=req.headers.get('x-uor-user');
+   if(!this.game||!this.room)return json({ok:false,error:'Nenhuma partida em andamento.'},404);
+   if(this.game.winner||this.game.annulled||this.game.finishedAt)return json({ok:false,error:'A partida já foi encerrada.'},409);
+   const p=this.game.players.find(x=>x.id===uid);
+   if(!p||p.abandoned)return json({ok:false,error:'Você não pode retornar a esta partida.'},403);
+   if(p.kickActive){
+    if(Number(p.kickUntil)>now())return json({ok:false,error:`Kick ativo por ${formatMsClock(Number(p.kickUntil)-now())}.`},403);
+    p.reconnectUntil=Number(p.kickUntil)+RECONNECT_GRACE_MS;p.kickActive=false;p.kickUntil=0;
+   }
+   if(Number(p.reconnectUntil||0)>0&&Number(p.reconnectUntil)<=now()){
+    await this.registerExpiredDesertion(uid);await this.closeIfOnlyAiAfterGrace();
+    return json({ok:false,error:'O tempo de reconexão terminou. A deserção foi registrada.'},403);
+   }
+   await this.persist();await this.scheduleNextAlarm();
+   return json({ok:true,room:await this.roomForPublic(),state:this.gameStateForClient(this.game,uid,false)});
+  }
+  if(path.endsWith('/internal/leave')){const uid=req.headers.get('x-uor-user');if(!this.room)return json({ok:true,deleted:true});if(this.game){const p=this.game.players.find(x=>x.id===uid);if(!p)return json({ok:false,error:'Jogador não encontrado.'},404);if(this.game.winner||this.game.resultRecorded){const closed=await this.closeFinishedRoom();return json({ok:true,deleted:!!closed,finished:true});}if(p.abandoned)return json({ok:true,room:await this.roomForPublic(),abandoned:true});const suspension=await applyDesertionSuspension(this.env,uid);p.abandoned=true;p.aiControlled=true;p.connectionStatus='abandoned';p.disconnectAt=now();p.reconnectUntil=0;p.logLabel='Desertou';this.sockets.get(uid)?.close(1000,'abandon');this.sockets.delete(uid);p.eliminated=false;this.game.log.push(`${p.name} abandonou a partida.`);await this.persist();await syncRoomRow(this.env,this.room.id,await this.roomForPublic());this.broadcast({type:'game_state_sync',state:this.game});const closed=await this.closeIfOnlyAiAfterGrace();return json({ok:true,room:closed?null:await this.roomForPublic(),deleted:!!closed,abandoned:true,suspension});}this.sockets.get(uid)?.close(1000,'leave');this.sockets.delete(uid);this.room.players=this.room.players.filter(p=>p.id!==uid);if(!this.room.players.length){this.room=null;this.game=null;await this.persist();return json({ok:true,deleted:true});}if(this.room.hostConnId===uid)this.room.hostConnId=this.room.players[0].id;await this.persist();this.broadcast({type:'room_state',room:await this.roomForPublic()});return json({ok:true,room:await this.roomForPublic()});}
+  if(path==='/ws' || path.startsWith('/ws')){if(req.headers.get('Upgrade')!=='websocket')return new Response('WebSocket required',{status:426});const uid=req.headers.get('x-uor-user');if(!uid||!this.room)return new Response('Unauthorized',{status:401});const isSpectator=req.headers.get('x-uor-spectator')==='1';if(isSpectator){const u=await this.env.DB.prepare('SELECT id,role FROM users WHERE id=?').bind(uid).first();if(!u||!isStaffOrAdmin(u))return new Response('Acesso de espectador permitido apenas para STAFF/ADMIN.',{status:403});if(this.game?.players?.some(p=>p.id===uid||p.connId===uid))return new Response('Este cargo já participa desta partida.',{status:409});this.spectators.add(uid);}else{this.spectators.delete(uid);if(this.game){const p=this.game.players.find(x=>x.id===uid);if(!p||p.abandoned)return new Response('Forbidden',{status:403});if(p.kickActive&&Number(p.kickUntil||0)>now())return new Response('Kick temporário ativo.',{status:403});if(this.game.winner||this.game.annulled||this.game.finishedAt)return new Response('A partida já foi encerrada.',{status:409});if(p.kickActive){p.reconnectUntil=Number(p.kickUntil)+RECONNECT_GRACE_MS;p.kickActive=false;p.kickUntil=0;}if(Number(p.reconnectUntil||0)>0&&Number(p.reconnectUntil)<=now()){await this.registerExpiredDesertion(uid);await this.closeIfOnlyAiAfterGrace();return new Response('O tempo de reconexão terminou.',{status:403});}p.aiControlled=false;p.connectionStatus='online';p.disconnectAt=null;p.reconnectUntil=null;await this.persist();}else if(!this.room.players?.some(p=>p.id===uid)){return new Response('Forbidden',{status:403});}}this.userBlocks.set(uid,await blockedUsers(this.env,uid));const publicRoom=await this.roomForPublic();const pair=new WebSocketPair(),client=pair[0],server=pair[1];server.accept();const previous=this.sockets.get(uid);if(previous&&previous!==server){try{previous.close(4001,'replaced_by_new_connection')}catch{}}this.sockets.set(uid,server);if(this.game&&!isSpectator){const gp=this.game.players.find(x=>x.id===uid);if(gp)gp.lastSeenAt=now();}server.addEventListener('message',e=>{const task=this.onMessage(uid,server,e).catch(err=>console.error('UOR socket action error',err));this.state.waitUntil?.(task);});server.addEventListener('close',()=>{const task=this.onClose(uid,server).catch(err=>console.error('UOR socket close error',err));this.state.waitUntil?.(task);});server.send(JSON.stringify({type:'room_state',room:publicRoom}));if(this.game)server.send(JSON.stringify({type:'game_state_sync',state:this.gameStateForClient(this.game,uid,isSpectator)}));this.scheduleNextAlarm();return new Response(null,{status:101,webSocket:client});}
   return json({ok:false,error:'Not found'},404);
  }
  async checkConnectionWatchdog(){
-  if(!this.game)return;
+  if(!this.game||this.game.winner||this.game.annulled||this.game.resultRecorded)return;
   const ts=now();
   for(const p of this.game.players){
-    if(p.eliminated||p.abandoned||p.aiControlled)continue;
-    if(this.sockets.has(p.id)&&Number(p.lastSeenAt||ts)+CONNECTION_WATCHDOG_MS<=ts){
-      const ws=this.sockets.get(p.id);try{ws.close(4000,'heartbeat timeout')}catch{}this.sockets.delete(p.id);
-      p.aiControlled=true;p.connectionStatus='disconnected';p.disconnectAt=ts;p.reconnectUntil=ts+RECONNECT_GRACE_MS;this.game.log.push(`${p.name} perdeu a conexão. IA assumiu temporariamente.`);
-      if(this.game.hostConnId===p.id){const next=this.game.players.find(x=>!x.eliminated&&!x.abandoned&&this.sockets.has(x.id));if(next){this.game.hostConnId=next.id;this.room.hostConnId=next.id;this.game.log.push(`${next.name} assumiu o comando da batalha.`);this.broadcast({type:'host_migrated',newHostConnId:next.id});}}
-    }
+   if(p.eliminated||p.abandoned||p.aiControlled)continue;
+   const ws=this.sockets.get(p.id),lastSeen=Number(p.lastSeenAt||0);
+   if(!ws||(lastSeen>0&&lastSeen+CONNECTION_WATCHDOG_MS<=ts)){
+    if(ws){try{ws.close(4000,'heartbeat timeout')}catch{}if(this.sockets.get(p.id)===ws)this.sockets.delete(p.id);}
+    p.aiControlled=true;p.connectionStatus='disconnected';p.disconnectAt=ts;p.reconnectUntil=ts+RECONNECT_GRACE_MS;
+    this.game.log.push(`${p.name} perdeu a conexão. IA assumiu temporariamente por até 10 minutos.`);
+    if(this.game.hostConnId===p.id){const next=this.game.players.find(x=>!x.eliminated&&!x.abandoned&&!x.aiControlled&&this.sockets.has(x.id));if(next){this.game.hostConnId=next.id;this.room.hostConnId=next.id;this.game.log.push(`${next.name} assumiu o comando da batalha.`);this.broadcast({type:'host_migrated',newHostConnId:next.id});}}
+   }
   }
  }
- async onClose(uid,ws){if(this.sockets.get(uid)!==ws)return;this.sockets.delete(uid);if(this.spectators.has(uid)){this.spectators.delete(uid);return;}if(!this.room)return;if(!this.game){this.room.players=this.room.players.filter(p=>p.id!==uid);if(!this.room.players.length){const rid=this.room.id;this.room=null;await this.persist();await this.env.DB.prepare('DELETE FROM rooms WHERE id=?').bind(rid).run();return;}if(this.room.hostConnId===uid)this.room.hostConnId=this.room.players[0].id;await this.persist();await syncRoomRow(this.env,this.room.id,await this.roomForPublic());this.broadcast({type:'room_state',room:await this.roomForPublic()});return;}const p=this.game.players.find(x=>x.id===uid);if(!p||p.eliminated||p.abandoned)return;const kickActiveNow=p.kickActive&&Number(p.kickUntil||0)>now();if(!kickActiveNow){p.aiControlled=true;p.connectionStatus='disconnected';p.disconnectAt=now();p.reconnectUntil=now()+RECONNECT_GRACE_MS;this.game.log.push(`${p.name} ficou desconectado. IA assumiu temporariamente.`);}if(this.game.hostConnId===uid){const next=this.game.players.find(x=>!x.eliminated&&!x.abandoned&&this.sockets.has(x.id));if(next){this.game.hostConnId=next.id;this.room.hostConnId=next.id;this.game.log.push(`${next.name} assumiu o comando da batalha.`);this.broadcast({type:'host_migrated',newHostConnId:next.id});}}await this.persist();await syncRoomRow(this.env,this.room.id,await this.roomForPublic());this.broadcast({type:'game_state_sync',state:this.game});this.scheduleNextAlarm();}
+ async onCloseUnlocked(uid,ws){
+  if(this.sockets.get(uid)!==ws)return;
+  this.sockets.delete(uid);this.userBlocks.delete(uid);this.chatLastSent.delete(uid);
+  if(this.spectators.has(uid)){this.spectators.delete(uid);return;}
+  if(!this.room)return;
+  if(!this.game){
+   this.room.players=this.room.players.filter(p=>p.id!==uid);
+   if(!this.room.players.length){const rid=this.room.id;this.room=null;await this.persist();await this.env.DB.prepare('DELETE FROM rooms WHERE id=?').bind(rid).run();return;}
+   if(this.room.hostConnId===uid)this.room.hostConnId=this.room.players[0].id;
+   await this.persist();await syncRoomRow(this.env,this.room.id,await this.roomForPublic());this.broadcast({type:'room_state',room:await this.roomForPublic()});return;
+  }
+  const p=this.game.players.find(x=>x.id===uid);if(!p||p.eliminated||p.abandoned)return;
+  const kickActiveNow=p.kickActive&&Number(p.kickUntil||0)>now();
+  if(!kickActiveNow){
+   const ts=now();p.aiControlled=true;p.connectionStatus='disconnected';p.disconnectAt=ts;
+   if(!Number(p.reconnectUntil||0)||Number(p.reconnectUntil)<=ts)p.reconnectUntil=ts+RECONNECT_GRACE_MS;
+   this.game.log.push(`${p.name} ficou desconectado. IA assumiu temporariamente.`);
+  }
+  if(this.game.hostConnId===uid){const next=this.game.players.find(x=>!x.eliminated&&!x.abandoned&&!x.aiControlled&&this.sockets.has(x.id));if(next){this.game.hostConnId=next.id;this.room.hostConnId=next.id;this.game.log.push(`${next.name} assumiu o comando da batalha.`);this.broadcast({type:'host_migrated',newHostConnId:next.id});}}
+  await this.persist();await syncRoomRow(this.env,this.room.id,await this.roomForPublic());this.broadcast({type:'game_state_sync',state:this.game});await this.scheduleNextAlarm();
+ }
  async scheduleNextAlarm(){
-  const times=[];
-  if(this.game?.winner||this.game?.resultRecorded){
-    if(!this.game.finishedAt)this.game.finishedAt=now();
-    times.push(Number(this.game.finishedAt)+FINISHED_ROOM_CLOSE_MS);
+  const times=[],ts=now(),hasConnectedHuman=!!this.game?.players?.some(p=>!p.eliminated&&!p.abandoned&&!p.aiControlled&&this.sockets.has(p.id));
+  if(this.game?.winner||this.game?.annulled){
+   if(!this.game.finishedAt)this.game.finishedAt=ts;
+   if(this.game.resultRecorded)times.push(Number(this.game.finishedAt)+FINISHED_ROOM_CLOSE_MS);
+   else times.push(Math.max(ts+250,Number(this.game.resultRecordRetryAt||0)||ts+RESULT_RETRY_MS));
   }
   if(this.game?.airAttackPending?.resolveAt)times.push(Number(this.game.airAttackPending.resolveAt));
-  if(this.game?.players)for(const p of this.game.players){if(p.aiControlled){if(Number(p.reconnectUntil)>0)times.push(Number(p.reconnectUntil));if(this.game.players[this.game.turnIndex]?.id===p.id)times.push(now()+1200);}}
-  if(this.game?.players?.some(p=>this.sockets.has(p.id)&&!p.aiControlled&&!p.abandoned))times.push(now()+HEARTBEAT_ALARM_MS);
+  if(this.game?.players)for(const p of this.game.players){
+   if(p.aiControlled){
+    if(p.kickActive&&Number(p.kickUntil||0)>ts)times.push(Number(p.kickUntil));
+    else if(!p.abandoned&&Number(p.reconnectUntil||0)>0)times.push(Number(p.reconnectUntil));
+    if(hasConnectedHuman&&!this.game.winner&&!this.game.annulled&&!this.game.resultRecorded&&this.game.players[this.game.turnIndex]?.id===p.id)times.push(ts+1200);
+   }else if(!p.abandoned&&!p.eliminated&&this.sockets.has(p.id)){
+    const lastSeen=Number(p.lastSeenAt||ts);times.push(lastSeen+CONNECTION_WATCHDOG_MS);
+   }
+  }
   if(!times.length)return;
-  const at=Math.max(now()+250,Math.min(...times));
+  const at=Math.max(ts+250,Math.min(...times.filter(Number.isFinite)));
   try{await this.state.storage.setAlarm(at);}catch{}
  }
  async runAiTurn(){
-  if(!this.game||this.game.winner||this.game.resultRecorded)return false;const p=this.game.players[this.game.turnIndex];if(!p||!p.aiControlled)return false;if(p.kickActive){if(Number(p.kickUntil||0)>now())return false;p.kickActive=false;p.kickUntil=0;p.connectionStatus='disconnected';p.reconnectUntil=now()+RECONNECT_GRACE_MS;this.game.log.push(`${p.name} encerrou o Kick e voltou ao período normal de reconexão.`);await this.persist();}if(Number(p.reconnectUntil)>0&&Number(p.reconnectUntil)<=now()){await this.registerExpiredDesertion(p.id);return false;}
-  let action=chooseAiAction(this.game,p.id);if(!action)return false;let next=applyAction(this.game,action);if(!next){const fallback=chooseAiFallbackAction(this.game,p.id);if(!fallback||fallback.kind===action.kind)return false;action=fallback;next=applyAction(this.game,action);if(!next)return false;}this.game=next;this.game.winner=checkWinner(this.game);if(this.game.winner&&!this.game.finishedAt)this.game.finishedAt=now();if(this.game.winner&&!this.game.resultRecorded)await recordResults(this.env,this.game);await this.persist();this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.game}});return true;
- }
- async closeFinishedRoom(){
-  if(!this.game||!this.room||(!this.game.winner&&!this.game.resultRecorded))return false;
-  const rid=this.room.id;
-  this.broadcast({type:'room_relay',roomId:rid,payload:{type:'match_closed',reason:'A partida foi encerrada.'}});
-  for(const ws of this.sockets.values()){try{ws.close(1000,'match_closed')}catch{}}this.sockets.clear();
-  for(const set of this.presenceSockets.values())for(const ws of set){try{ws.close(1000,'match_closed')}catch{}}this.presenceSockets.clear();this.presenceUsers.clear();this.spectators.clear();
-  this.room=null;this.game=null;await this.persist();await this.env.DB.prepare('DELETE FROM rooms WHERE id=?').bind(rid).run();return true;
- }
- async closeIfOnlyAiAfterGrace(){
-  if(!this.game||!this.room||this.game.winner||this.game.resultRecorded)return false;
-  const active=this.game.players.filter(p=>!p.eliminated);
-  if(!active.length||!active.every(p=>p.aiControlled))return false;
-  const pending=active.filter(p=>(!p.abandoned&&Number(p.reconnectUntil||0)>now())||(p.kickActive&&Number(p.kickUntil||0)>now()));
-  if(pending.length)return false;
-  const rid=this.room.id;this.broadcast({type:'room_relay',roomId:rid,payload:{type:'match_closed',reason:'A partida foi encerrada automaticamente porque todos os jogadores ficaram sob controle da IA e o período de reconexão terminou.'}});
-  for(const ws of this.sockets.values()){try{ws.close(1000,'match_closed')}catch{}}this.sockets.clear();
-  for(const set of this.presenceSockets.values())for(const ws of set){try{ws.close(1000,'match_closed')}catch{}}this.presenceSockets.clear();this.presenceUsers.clear();this.spectators.clear();
-  this.room=null;this.game=null;await this.persist();await this.env.DB.prepare('DELETE FROM rooms WHERE id=?').bind(rid).run();return true;
- }
- async registerExpiredDesertion(uid){
-  const p=this.game?.players?.find(x=>x.id===uid);if(!p||p.abandoned||p.kickActive)return;const suspension=await applyDesertionSuspension(this.env,uid);p.abandoned=true;p.aiControlled=true;p.connectionStatus='abandoned';p.disconnectAt=p.disconnectAt||now();p.reconnectUntil=0;p.logLabel='Desertou';this.game.log.push(`${p.name} não retornou em 5 minutos e foi registrado como deserção.`);this.broadcast({type:'game_state_sync',state:this.game});await this.persist();await syncRoomRow(this.env,this.room.id,await this.roomForPublic());return suspension;
- }
- async resolveAirAttack(){
-  if(!this.game?.airAttackPending)return false;
-  const resolved=finalizeAirAttack(this.game);
-  if(!resolved)return false;
-  this.game.winner=checkWinner(this.game);
+  if(!this.game||this.game.winner||this.game.annulled||this.game.resultRecorded)return false;
+  const p=this.game.players[this.game.turnIndex];if(!p||!p.aiControlled||p.eliminated)return false;
+  const hasConnectedHuman=this.game.players.some(x=>!x.eliminated&&!x.abandoned&&!x.aiControlled&&this.sockets.has(x.id));if(!hasConnectedHuman)return false;
+  if(p.kickActive&&Number(p.kickUntil||0)<=now()){p.reconnectUntil=Number(p.kickUntil)+RECONNECT_GRACE_MS;p.kickActive=false;p.kickUntil=0;p.connectionStatus='disconnected';this.game.log.push(`${p.name} encerrou o Kick e entrou no período normal de reconexão de 10 minutos.`);await this.persist();}
+  if(!p.abandoned&&!p.kickActive&&Number(p.reconnectUntil||0)>0&&Number(p.reconnectUntil)<=now()){await this.registerExpiredDesertion(p.id);}
+  let action=chooseAiAction(this.game,p.id);if(!action)return false;
+  let candidate=structuredClone(this.game),next=applyAction(candidate,action,true);
+  if(!next){const fallback=chooseAiFallbackAction(this.game,p.id);if(!fallback||fallback.kind===action.kind)return false;action=fallback;candidate=structuredClone(this.game);next=applyAction(candidate,action,true);if(!next)return false;}
+  this.game=next;this.game.winner=checkWinner(this.game);
   if(this.game.winner&&!this.game.finishedAt)this.game.finishedAt=now();
   if(this.game.winner&&!this.game.resultRecorded)await recordResults(this.env,this.game);
-  await this.persist();
-  this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.game}});
-  return true;
+  await this.persist();this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.game}});return true;
  }
- async alarm(){
+ async closeFinishedRoom(reason='A partida foi encerrada.'){
+  if(!this.game||!this.room||!this.game.resultRecorded)return false;
+  const rid=this.room.id;
+  this.broadcast({type:'room_relay',roomId:rid,payload:{type:'match_closed',reason}});
+  for(const ws of this.sockets.values()){try{ws.close(1000,'match_closed')}catch{}}this.sockets.clear();
+  for(const set of this.presenceSockets.values())for(const ws of set){try{ws.close(1000,'match_closed')}catch{}}this.presenceSockets.clear();this.presenceUsers.clear();this.spectators.clear();
+  this.room=null;this.game=null;await this.persist();await this.state.storage.delete('chatEvidence');this.userBlocks.clear();this.chatLastSent.clear();await this.env.DB.prepare('DELETE FROM rooms WHERE id=?').bind(rid).run();return true;
+ }
+ async closeIfOnlyAiAfterGrace(){
+  if(!this.game||!this.room||this.game.winner||this.game.annulled||this.game.resultRecorded)return false;
+  const active=this.game.players.filter(p=>!p.eliminated);
+  if(!active.length||active.some(p=>!p.aiControlled&&!p.abandoned))return false;
+  const ts=now();
+  for(const p of active){
+   if(p.abandoned)continue;
+   if(p.kickActive&&Number(p.kickUntil||0)>ts)return false;
+   if(Number(p.reconnectUntil||0)>ts)return false;
+  }
+  for(const p of [...active])if(!p.abandoned&&!p.kickActive)await this.registerExpiredDesertion(p.id);
+  if(!this.game||!this.room)return false;
+  const stillActiveHuman=this.game.players.some(p=>!p.eliminated&&!p.abandoned&&!p.aiControlled&&this.sockets.has(p.id));if(stillActiveHuman)return false;
+  this.game.annulled=true;this.game.endedReason='no_human_players';this.game.finishedAt=this.game.finishedAt||now();
+  this.game.log.push('Partida encerrada: não restou nenhum jogador humano conectado após o prazo de reconexão.');
+  const committed=await recordResults(this.env,this.game);
+  await this.persist();this.broadcast({type:'game_state_sync',state:this.game});
+  if(!committed)return false;
+  return this.closeFinishedRoom('A partida foi encerrada automaticamente porque não restou nenhum jogador humano. As deserções foram registradas.');
+ }
+ async registerExpiredDesertion(uid){
+  const p=this.game?.players?.find(x=>x.id===uid);if(!p||p.abandoned||p.kickActive)return null;
+  const suspension=await applyDesertionSuspension(this.env,uid);
+  p.abandoned=true;p.aiControlled=true;p.connectionStatus='abandoned';p.disconnectAt=p.disconnectAt||now();p.reconnectUntil=0;p.logLabel='Desertou';
+  this.game.log.push(`${p.name} não retornou em 10 minutos e foi registrado como deserção.`);
+  this.broadcast({type:'game_state_sync',state:this.game});await this.persist();if(this.room)await syncRoomRow(this.env,this.room.id,await this.roomForPublic());return suspension;
+ }
+ async resolveAirAttack(){
+  if(!this.game?.airAttackPending||this.game.winner||this.game.annulled||this.game.resultRecorded)return false;
+  const pending=this.game.airAttackPending;
+  if(Number(pending.resolveAt||0)>now())return false;
+  if(!validTerritoryId(pending.toId)||!this.game.players?.some(p=>p.id===pending.attackerId)||!Number.isSafeInteger(Number(pending.destroyed))){this.game.airAttackPending=null;await this.persist();return false;}
+  const candidate=structuredClone(this.game),resolved=finalizeAirAttack(candidate);if(!resolved)return false;
+  candidate.winner=checkWinner(candidate);if(candidate.winner&&!candidate.finishedAt)candidate.finishedAt=now();
+  if(candidate.winner&&!candidate.resultRecorded)await recordResults(this.env,candidate);
+  this.game=candidate;await this.persist();this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.game}});return true;
+ }
+ async alarmUnlocked(){
   const lobbyChatCleanup=await this.state.storage.get('lobbyChatCleanup');
   if(lobbyChatCleanup){
-    const due=Number(await this.state.storage.get('lobbyChatNextCleanupAt')||0);
-    if(!due||due<=now()){
-      await cleanupGlobalChat(this.env);
-      if(this.presenceSockets.size>0){const next=now()+GLOBAL_CHAT_RESET_MS;await this.state.storage.put('lobbyChatNextCleanupAt',next);try{await this.state.storage.setAlarm(next)}catch{}}
-      else{await this.state.storage.delete('lobbyChatCleanup');await this.state.storage.delete('lobbyChatNextCleanupAt');}
-    }else{try{await this.state.storage.setAlarm(due)}catch{}}
+   const due=Number(await this.state.storage.get('lobbyChatNextCleanupAt')||0);
+   if(!due||due<=now()){await cleanupGlobalChat(this.env);if(this.presenceSockets.size>0){const next=now()+GLOBAL_CHAT_RESET_MS;await this.state.storage.put('lobbyChatNextCleanupAt',next);try{await this.state.storage.setAlarm(next)}catch{}}else{await this.state.storage.delete('lobbyChatCleanup');await this.state.storage.delete('lobbyChatNextCleanupAt');}}
+   else{try{await this.state.storage.setAlarm(due)}catch{}}
   }
-  await this.resolveAirAttack();
-  await this.checkConnectionWatchdog();
+  await this.resolveAirAttack();await this.checkConnectionWatchdog();
   if(this.game){await this.persist();this.broadcast({type:'room_relay',roomId:this.room?.id,payload:{type:'game_state_sync',state:this.game}});}
   if(this.game){
-    if(this.game.winner||this.game.resultRecorded){
-      const closeAt=Number(this.game.finishedAt||0)+FINISHED_ROOM_CLOSE_MS;
-      if(closeAt>0&&now()>=closeAt){await this.closeFinishedRoom();return;}
-      await this.scheduleNextAlarm();
-      return;
-    }
-    for(const p of [...this.game.players]){if(p.kickActive&&Number(p.kickUntil||0)>0&&Number(p.kickUntil)<=now()){p.kickActive=false;p.kickUntil=0;p.connectionStatus='disconnected';p.reconnectUntil=now()+RECONNECT_GRACE_MS;this.game.log.push(`${p.name} encerrou o Kick e voltou ao período normal de reconexão.`);}if(p.aiControlled&&!p.abandoned&&!p.kickActive&&Number(p.reconnectUntil)>0&&Number(p.reconnectUntil)<=now())await this.registerExpiredDesertion(p.id);}
-    if(await this.closeIfOnlyAiAfterGrace())return;
-    await this.runAiTurn();
-    if(this.game?.winner&&!this.game.finishedAt)this.game.finishedAt=now();
-    if(this.game?.winner&&!this.game.resultRecorded)await recordResults(this.env,this.game);
-    if(this.game)await this.closeIfOnlyAiAfterGrace();
+   if(this.game.winner||this.game.annulled){
+    if(!this.game.finishedAt)this.game.finishedAt=now();
+    if(!this.game.resultRecorded)await recordResults(this.env,this.game);
+    if(this.game.resultRecorded&&now()>=Number(this.game.finishedAt||0)+FINISHED_ROOM_CLOSE_MS){await this.closeFinishedRoom();return;}
+    await this.persist();await this.scheduleNextAlarm();return;
+   }
+   for(const p of [...this.game.players]){
+    if(p.kickActive&&Number(p.kickUntil||0)>0&&Number(p.kickUntil)<=now()){p.reconnectUntil=Number(p.kickUntil)+RECONNECT_GRACE_MS;p.kickActive=false;p.kickUntil=0;p.connectionStatus='disconnected';this.game.log.push(`${p.name} encerrou o Kick e entrou no período normal de reconexão de 10 minutos.`);}
+    if(p.aiControlled&&!p.abandoned&&!p.kickActive&&Number(p.reconnectUntil||0)>0&&Number(p.reconnectUntil)<=now())await this.registerExpiredDesertion(p.id);
+   }
+   if(await this.closeIfOnlyAiAfterGrace())return;
+   await this.runAiTurn();
+   if(this.game?.winner&&!this.game.finishedAt)this.game.finishedAt=now();
+   if(this.game?.winner&&!this.game.resultRecorded)await recordResults(this.env,this.game);
+   if(this.game)await this.closeIfOnlyAiAfterGrace();
   }
-  await this.scheduleNextAlarm();
+  await this.persist();await this.scheduleNextAlarm();
  }
- async onMessage(uid,ws,e){let m;try{m=JSON.parse(e.data)}catch{return}const isSpectator=this.spectators.has(uid);if(this.game&&!isSpectator){const hp=this.game.players.find(x=>x.id===uid);if(hp)hp.lastSeenAt=now();}if(!m?.type)return;if(isSpectator&&m.type!=='sync_request'&&m.type!=='game_chat'&&m.type!=='heartbeat'){ws.send(JSON.stringify({type:'room_relay',roomId:this.room?.id,payload:{type:'spectator_action_rejected',reason:'Modo espectador: ações de jogo estão bloqueadas.'}}));return;}if(m.type==='heartbeat'){try{ws.send(JSON.stringify({type:'heartbeat_ack',ts:now()}))}catch{};if(!isSpectator)await this.persist();await this.scheduleNextAlarm();return;}if(m.type==='sync_request'){try{ws.send(JSON.stringify({type:'heartbeat_ack',ts:now()}))}catch{};if(this.game){normalizeObjectives(this.game);if(this.game.phase==='reforco'&&(!Object.prototype.hasOwnProperty.call(this.game,'continentBonusRemaining')||!Object.prototype.hasOwnProperty.call(this.game,'reinforcementStage'))){const cp=this.game.players?.[this.game.turnIndex];if(cp)beginReinforcementPhase(this.game,cp.id);}await this.persist();ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.gameStateForClient(this.game,uid,isSpectator)}}));}else if(this.room)ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'room_state',room:await this.roomForPublic()}}));await this.scheduleNextAlarm();return;}if(m.type==='room_chat'){const muted=await getActiveMute(this.env,uid);if(muted){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'chat_rejected',reason:`Você está silenciado por mais ${Math.max(1,Math.ceil((muted.expiresAt-now())/60000))} minuto(s).`}}));return;}const rp=this.room.players.find(p=>p.id===uid);const entry={name:rp?.name||'Jogador',color:rp?.color||COLORS[0],rankId:rp?.rankId||'soldado',role:normalizeRole(rp?.role),text:String(m.entry?.text||'').trim().slice(0,400),ts:now()};if(!entry.text)return;this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'room_chat',entry}});return;}
-  if(m.type==='game_chat'){if(!this.game)return;const muted=await getActiveMute(this.env,uid);if(muted){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'chat_rejected',reason:`Você está silenciado por mais ${Math.max(1,Math.ceil((muted.expiresAt-now())/60000))} minuto(s).`}}));return;}const text=String(m.entry?.text||'').trim().slice(0,400);if(!text)return;if(isSpectator){const u=await this.env.DB.prepare('SELECT u.id,u.nick,u.role,s.points FROM users u JOIN user_stats s ON s.user_id=u.id WHERE u.id=?').bind(uid).first();if(!u||!isStaffOrAdmin(u))return;const entry={name:u.nick,color:COLORS[0],rankId:rankFor(Number(u.points||0)).id,role:normalizeRole(u.role),text,ts:now(),spectator:true};this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_chat',entry}});return;}const p=this.game.players.find(x=>x.id===uid);if(!p||p.eliminated)return;const entry={name:p.name,color:p.color,rankId:p.rankId||'soldado',role:normalizeRole(p.role),text,ts:now()};this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_chat',entry}});return;}
+ async onMessageUnlocked(uid,ws,e){if(this.sockets.get(uid)!==ws){try{ws.close(4001,'stale_connection')}catch{}return;}if(typeof e.data!=='string'||e.data.length>8192)return;let m;try{m=JSON.parse(e.data)}catch{return}if(m?.type==='room_chat'||m?.type==='game_chat'){const consent=await this.env.DB.prepare('SELECT version FROM user_consents WHERE user_id=?').bind(uid).first();if(consent?.version!==LEGAL_VERSION){ws.send(JSON.stringify({type:'room_relay',roomId:this.room?.id,payload:{type:'chat_rejected',code:'TERMS_REQUIRED',reason:'Aceite as regras da comunidade antes de enviar mensagens.'}}));return;}const ts=now();if(ts-Number(this.chatLastSent.get(uid)||0)<1000)return;this.chatLastSent.set(uid,ts);}const isSpectator=this.spectators.has(uid);if(this.game&&!isSpectator){const hp=this.game.players.find(x=>x.id===uid);if(hp)hp.lastSeenAt=now();}if(!m?.type)return;if(isSpectator&&m.type!=='sync_request'&&m.type!=='game_chat'&&m.type!=='heartbeat'){ws.send(JSON.stringify({type:'room_relay',roomId:this.room?.id,payload:{type:'spectator_action_rejected',reason:'Modo espectador: ações de jogo estão bloqueadas.'}}));return;}if(m.type==='heartbeat'){try{ws.send(JSON.stringify({type:'heartbeat_ack',ts:now()}))}catch{};if(!isSpectator)await this.persist();await this.scheduleNextAlarm();return;}if(m.type==='sync_request'){try{ws.send(JSON.stringify({type:'heartbeat_ack',ts:now()}))}catch{};if(this.game){normalizeObjectives(this.game);if(this.game.phase==='reforco'&&(!Object.prototype.hasOwnProperty.call(this.game,'continentBonusRemaining')||!Object.prototype.hasOwnProperty.call(this.game,'reinforcementStage'))){const cp=this.game.players?.[this.game.turnIndex];if(cp)beginReinforcementPhase(this.game,cp.id);}await this.persist();ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.gameStateForClient(this.game,uid,isSpectator)}}));}else if(this.room)ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'room_state',room:await this.roomForPublic()}}));await this.scheduleNextAlarm();return;}if(m.type==='room_chat'){const muted=await getActiveMute(this.env,uid);if(muted){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'chat_rejected',reason:`Você está silenciado por mais ${Math.max(1,Math.ceil((muted.expiresAt-now())/60000))} minuto(s).`}}));return;}const rp=this.room.players.find(p=>p.id===uid);const entry={id:uuid(),userId:uid,name:rp?.name||'Jogador',color:rp?.color||COLORS[0],rankId:rp?.rankId||'soldado',role:normalizeRole(rp?.role),text:String(m.entry?.text||'').trim().slice(0,400),ts:now()};if(!entry.text)return;await this.saveChatEvidence(entry);this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'room_chat',entry}});return;}
+  if(m.type==='game_chat'){if(!this.game)return;const muted=await getActiveMute(this.env,uid);if(muted){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'chat_rejected',reason:`Você está silenciado por mais ${Math.max(1,Math.ceil((muted.expiresAt-now())/60000))} minuto(s).`}}));return;}const text=String(m.entry?.text||'').trim().slice(0,400);if(!text)return;if(isSpectator){const u=await this.env.DB.prepare('SELECT u.id,u.nick,u.role,s.points FROM users u JOIN user_stats s ON s.user_id=u.id WHERE u.id=?').bind(uid).first();if(!u||!isStaffOrAdmin(u))return;const entry={id:uuid(),userId:uid,name:u.nick,color:COLORS[0],rankId:rankFor(Number(u.points||0)).id,role:normalizeRole(u.role),text,ts:now(),spectator:true};await this.saveChatEvidence(entry);this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_chat',entry}});return;}const p=this.game.players.find(x=>x.id===uid);if(!p||p.eliminated)return;const entry={id:uuid(),userId:uid,name:p.name,color:p.color,rankId:p.rankId||'soldado',role:normalizeRole(p.role),text,ts:now()};await this.saveChatEvidence(entry);this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_chat',entry}});return;}
   if(m.type==='room_ready'){if(this.game||!this.room||uid===this.room.hostConnId)return;const p=this.room.players.find(x=>x.id===uid);if(!p)return;p.ready=!p.ready;await this.persist();this.broadcast({type:'room_state',room:await this.roomForPublic()});await syncRoomRow(this.env,this.room.id,await this.roomForPublic());return;}
   if(m.type==='start_game'){const othersReady=this.room?.players?.length>=2&&this.room.players.filter(p=>p.id!==this.room.hostConnId).every(p=>p.ready===true);if(uid!==this.room.hostConnId||!othersReady||this.game)return;this.room.settings=normalizeRoomSettings(this.room.settings);this.game=initGame(this.room);this.room.gameActive=true;await this.persist();await syncRoomRow(this.env,this.room.id,await this.roomForPublic());this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_start',state:this.game}});return;}
-  if(m.type==='air_attack_request'){if(!this.game)return;const a={...(m.action||{}),byConnId:uid};const next=applyAction(this.game,a);if(!next){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_action_rejected',reason:'Ataque aéreo recusado pelo servidor.'}}));return;}this.game=next;const resolveDelay=Math.max(4000,Math.min(16000,Number(a.visualImpactMs)||6000));const pendingRef=this.game.airAttackPending;pendingRef.resolveAt=Date.now()+resolveDelay;await this.persist();const visualTs=now();this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'air_attack_visual',action:a,ts:visualTs}});this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.game}});
-   const resolvePromise=new Promise(resolve=>setTimeout(resolve,resolveDelay)).then(async()=>{if(this.game?.airAttackPending!==pendingRef)return;await this.resolveAirAttack();});
-   if(typeof this.state.waitUntil==='function')this.state.waitUntil(resolvePromise);
-   try{await this.state.storage.setAlarm(pendingRef.resolveAt);}catch{}
-   return;}
-  if(m.type==='game_action'){if(!this.game)return;const a={...(m.action||{}),byConnId:uid};const next=applyAction(this.game,a);if(!next){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_action_rejected',reason:'Ação recusada pelo servidor. Confira a fase, o alvo e aguarde a sincronização.'}}));return;}this.game=next;this.game.winner=checkWinner(this.game);if(this.game.winner&&!this.game.finishedAt)this.game.finishedAt=now();if(this.game.winner&&!this.game.resultRecorded)await recordResults(this.env,this.game);await this.persist();this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.game}});await this.scheduleNextAlarm();}
+  if(m.type==='air_attack_request'){
+   if(!this.game)return;
+   if(this.game.winner||this.game.annulled||this.game.finishedAt||this.game.resultRecorded){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_action_rejected',reason:'A partida já foi encerrada.'}}));return;}
+   if(!isPlainObject(m.action)||m.action.kind!=='airAttack'||!validTerritoryId(m.action.toId)){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_action_rejected',reason:'Ataque aéreo inválido.'}}));return;}
+   const rawImpact=m.action.visualImpactMs==null?6000:Number(m.action.visualImpactMs);
+   if(!Number.isFinite(rawImpact)||rawImpact<0){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_action_rejected',reason:'Tempo visual do ataque aéreo inválido.'}}));return;}
+   const a={...m.action,kind:'airAttack',byConnId:uid},candidate=structuredClone(this.game),next=applyAction(candidate,a);
+   if(!next||!next.airAttackPending){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_action_rejected',reason:'Ataque aéreo recusado pelo servidor.'}}));return;}
+   const resolveDelay=Math.max(4000,Math.min(16000,Math.round(rawImpact||6000)));next.airAttackPending.resolveAt=now()+resolveDelay;this.game=next;
+   await this.persist();const visualTs=now(),pendingStartedAt=next.airAttackPending.startedAt;
+   this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'air_attack_visual',action:a,ts:visualTs}});
+   this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.game}});
+   await this.scheduleNextAlarm();
+   return;
+  }
+  if(m.type==='game_action'){
+   if(!this.game)return;
+   if(this.game.winner||this.game.annulled||this.game.finishedAt||this.game.resultRecorded){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_action_rejected',reason:'A partida já foi encerrada.'}}));return;}
+   if(!isPlainObject(m.action)||m.action.kind==='airAttack'){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_action_rejected',reason:'Ação inválida ou canal incorreto.'}}));return;}
+   const a={...m.action,byConnId:uid},candidate=structuredClone(this.game),next=applyAction(candidate,a);
+   if(!next){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_action_rejected',reason:'Ação recusada pelo servidor. Confira valores inteiros, fase, alvo e sincronização.'}}));return;}
+   this.game=next;this.game.winner=checkWinner(this.game);
+   if(this.game.winner&&!this.game.finishedAt)this.game.finishedAt=now();
+   if(this.game.winner&&!this.game.resultRecorded)await recordResults(this.env,this.game);
+   await this.persist();this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.game}});await this.scheduleNextAlarm();
+  }
  }
 }
 
-async function route(req,env){try{return await routeInner(req,env);}catch(e){console.error('UOR route error',e);return json({ok:false,error:'Erro interno do servidor.'},500);}}
-async function routeInner(req,env){const url=new URL(req.url),p=url.pathname;if(p==='/api/admin/bootstrap-role'&&req.method==='POST')return apiAdminBootstrapRole(req,env);if(p==='/api/auth/me')return apiAuthMe(req,env);if(p==='/api/auth/register'&&req.method==='POST')return apiAuthRegister(req,env);if(p==='/api/auth/login'&&req.method==='POST')return apiAuthLogin(req,env);if(p==='/api/auth/logout'&&req.method==='POST')return apiAuthLogout(req,env);const user=await authUser(req,env);if(!user)return json({ok:false,error:'Faça login para continuar.'},401);
+async function route(req,env){try{return await routeInner(req,env);}catch(e){console.error('UOR route error',e);if(new URL(req.url).pathname==='/api/account/delete')return json({ok:false,code:'DELETE_PENDING',error:'Não foi possível concluir a exclusão. Se a senha foi confirmada, a solicitação permanece registrada. Repita a operação ou use o contato de privacidade.'},503);return json({ok:false,error:'Erro interno do servidor.'},500);}}
+async function routeInner(req,env){const url=new URL(req.url),p=url.pathname;if(req.method==='POST'&&req.headers.get('Origin')&&req.headers.get('Origin')!==url.origin)return json({ok:false,error:'Origem inválida.'},403);if(p==='/api/account/delete'&&req.method==='POST')return apiDeleteAccount(req,env);if(p==='/api/admin/bootstrap-role'&&req.method==='POST')return apiAdminBootstrapRole(req,env);if(p==='/api/auth/me')return apiAuthMe(req,env);if(p==='/api/auth/register'&&req.method==='POST')return apiAuthRegister(req,env);if(p==='/api/auth/login'&&req.method==='POST')return apiAuthLogin(req,env);if(p==='/api/auth/logout'&&req.method==='POST')return apiAuthLogout(req,env);const user=await authUser(req,env);if(!user)return json({ok:false,error:'Faça login para continuar.'},401);if(user.deleting)return json({ok:false,error:'Exclusão pendente. Repita a solicitação em /delete-account.'},403);if(p==='/api/legal/status'&&req.method==='GET'){const c=await env.DB.prepare('SELECT version FROM user_consents WHERE user_id=?').bind(user.id).first();return json({ok:true,accepted:c?.version===LEGAL_VERSION,version:LEGAL_VERSION});}if(p==='/api/legal/accept'&&req.method==='POST'){const b=await body(req);if(!legalConfigured(env))return json({ok:false,error:'Contato de privacidade ainda não configurado pelo responsável.'},503);if(b.acceptTerms!==true||b.legalVersion!==LEGAL_VERSION)return json({ok:false,error:'Aceite os termos e confirme a leitura da política.'},400);await env.DB.prepare('INSERT INTO user_consents(user_id,version,accepted_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET version=excluded.version,accepted_at=excluded.accepted_at').bind(user.id,LEGAL_VERSION,now()).run();return json({ok:true});}if(p==='/api/blocks'&&['GET','POST'].includes(req.method))return apiBlocks(req,env,user);if(p==='/api/reports'&&req.method==='POST')return apiReport(req,env,user);if(p==='/api/moderation/reports'&&['GET','POST'].includes(req.method))return apiReports(req,env,user);
  if(p==='/api/profile')return apiProfile(req,env,user);if(p==='/api/public-profile')return apiPublicProfile(req,env,user.id);if(p==='/api/ranking')return apiRanking(req,env);if(p==='/api/history')return apiHistory(req,env,user);if(p==='/api/public-history')return apiPublicHistory(req,env,user.id);if(p==='/api/chat')return apiChat(req,env,user);if(p==='/api/moderation/mute'&&req.method==='POST')return apiModerationMute(req,env,user);if(p==='/api/moderation/unmute'&&req.method==='POST')return apiModerationUnmute(req,env,user);if(p==='/api/moderation/kick'&&req.method==='POST')return apiModerationKick(req,env,user);if(p==='/api/moderation/status'&&req.method==='GET')return apiModerationStatus(req,env,user);if(p==='/api/moderation/active'&&req.method==='GET')return apiModerationActive(req,env,user);if(p==='/api/admin/users'&&req.method==='GET')return apiAdminUsers(req,env,user);if(p==='/api/admin/role'&&req.method==='POST')return apiAdminSetRole(req,env,user);if(p==='/api/admin/remove-suspension'&&req.method==='POST')return apiAdminRemoveSuspension(req,env,user);if(p==='/api/rooms'&&req.method==='GET')return apiRooms(req,env);if(p==='/api/rooms'&&req.method==='POST')return apiCreateRoom(req,env,user);if(p==='/api/active-match'&&req.method==='GET')return apiActiveMatch(req,env,user);let m=p.match(/^\/api\/rooms\/([^/]+)\/(join|leave|reconnect)$/);if(m&&req.method==='POST'){if(m[2]==='join')return apiJoinRoom(req,env,user,m[1]);if(m[2]==='leave')return apiLeaveRoom(req,env,user,m[1]);return apiReconnectRoom(req,env,user,m[1]);}return json({ok:false,error:'Endpoint não encontrado.'},404);}
 
-export default {async fetch(req,env,ctx){const url=new URL(req.url);if(url.pathname==='/ws/lobby'){const user=await authUser(req,env);if(!user)return new Response('Unauthorized',{status:401});const d=await getRoomDO(env,'__uor_lobby_presence__');const headers=new Headers(req.headers);headers.set('x-uor-user',user.id);headers.set('x-uor-name',user.nick);headers.set('x-uor-color',COLORS[0]);return d.fetch(new Request(req,{headers}));}if(url.pathname.startsWith('/ws/rooms/')){const user=await authUser(req,env);if(!user)return new Response('Unauthorized',{status:401});const id=decodeURIComponent(url.pathname.split('/').pop());const d=await getRoomDO(env,id);const headers=new Headers(req.headers);headers.set('x-uor-user',user.id);const spectator=new URL(req.url).searchParams.get('spectator')==='1';if(spectator){if(!isStaffOrAdmin(user))return new Response('Apenas STAFF/ADMIN pode assistir partidas.',{status:403});if(req.headers.get('Upgrade')!=='websocket')return new Response('WebSocket required',{status:426});headers.set('x-uor-spectator','1');}return d.fetch(new Request(req,{headers}));}if(url.pathname.startsWith('/api/'))return route(req,env);return env.ASSETS.fetch(req);}};
+export default {async fetch(req,env,ctx){const url=new URL(req.url);const legal=publicLegalPage(url.pathname,env);if(legal)return legal;if(url.pathname.startsWith('/ws/')&&req.headers.get('Origin')&&req.headers.get('Origin')!==url.origin)return new Response('Origem inválida.',{status:403});if(url.pathname==='/ws/lobby'){const user=await authUser(req,env);if(!user||user.deleting)return new Response('Unauthorized',{status:401});const d=await getRoomDO(env,'__uor_lobby_presence__');const headers=new Headers(req.headers);headers.set('x-uor-user',user.id);headers.set('x-uor-name',user.nick);headers.set('x-uor-color',COLORS[0]);return d.fetch(new Request(req,{headers}));}if(url.pathname.startsWith('/ws/rooms/')){const user=await authUser(req,env);if(!user||user.deleting)return new Response('Unauthorized',{status:401});const id=decodeURIComponent(url.pathname.split('/').pop());const d=await getRoomDO(env,id);const headers=new Headers(req.headers);headers.set('x-uor-user',user.id);headers.delete('x-uor-spectator');const spectator=new URL(req.url).searchParams.get('spectator')==='1';if(spectator){if(!isStaffOrAdmin(user))return new Response('Apenas STAFF/ADMIN pode assistir partidas.',{status:403});if(req.headers.get('Upgrade')!=='websocket')return new Response('WebSocket required',{status:426});headers.set('x-uor-spectator','1');}return d.fetch(new Request(req,{headers}));}if(url.pathname.startsWith('/api/'))return route(req,env);return env.ASSETS.fetch(req);}};
