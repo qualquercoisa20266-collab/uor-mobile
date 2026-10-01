@@ -45,10 +45,12 @@
   .screen{ position:relative; z-index:2; width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
   .hidden{display:none !important;}
 
-  #connStatus{ position:fixed; top:14px; right:14px; z-index:60; display:flex; align-items:center; gap:8px;
+  #connStatus{ position:relative; top:auto; right:auto; z-index:auto; display:flex; align-items:center; gap:8px;
     background:rgba(10,9,8,0.85); border:1px solid var(--line); padding:7px 12px 7px 10px; border-radius:22px;
     font-family:'JetBrains Mono', monospace; font-size:0.68rem; letter-spacing:0.02em; backdrop-filter:blur(6px);
     box-shadow:0 8px 24px -10px rgba(0,0,0,0.7); transition:border-color 0.3s; max-width:min(70vw, 320px); }
+  .lobby-connection-row{display:flex;justify-content:flex-end;flex:0 0 auto;min-height:36px;margin-bottom:8px;}
+  .lobby-connection-row #connStatus{max-width:100%;}
   #connStatus.online{ border-color:rgba(63,174,90,0.4); }
   #connStatus.offline{ border-color:rgba(225,74,63,0.5); }
   #connStatus.connecting{ border-color:rgba(201,162,75,0.5); }
@@ -636,7 +638,9 @@
   .general-name{ min-width:0; display:flex; align-items:flex-start; gap:5px; font-family:'Cinzel',serif; font-size:.72rem; color:var(--parchment); white-space:normal; overflow:visible; text-overflow:clip; }
   .general-name > span:last-child{ min-width:0; display:flex; flex-direction:column; align-items:flex-start; white-space:normal; overflow:visible; }
   .general-ai-status{ white-space:normal; line-height:1.25; }
-  .general-stats{ text-align:right; font-family:'JetBrains Mono',monospace; font-size:.58rem; line-height:1.35; color:var(--parchment-dim); white-space:nowrap; }
+  .general-stats{ text-align:right; font-family:'JetBrains Mono',monospace; font-size:.58rem; line-height:1.35; color:var(--parchment-dim); white-space:normal;overflow-wrap:anywhere;max-width:140px; }
+  .generals-card-info{padding:10px 12px;font-size:.67rem;line-height:1.45;color:var(--parchment-dim);border-bottom:1px solid var(--line);overflow-wrap:anywhere;}
+  .generals-card-info strong{color:var(--brass-bright);}
   .general-stats strong{ color:var(--brass-bright); }
 
   .floating-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 10px; border-bottom:1px solid rgba(201,162,75,.45); background:rgba(0,0,0,.18); }
@@ -1179,11 +1183,7 @@
   <div id="embers"></div>
   <div class="vignette"></div>
 
-  <div id="connStatus" class="connecting">
-    <div class="conn-dot"></div>
-    <span id="connLabel">Conectando...</span>
-    <button id="reconnectBtn" title="Tentar reconectar">↻</button>
-  </div>
+
 
   <!-- ============ CONTA UOR ============ -->
   <div id="accountScreen" class="screen">
@@ -1278,6 +1278,13 @@
   <!-- ============ TELA 2: LOBBY (chat global + salas) ============ -->
   <div id="lobbyScreen" class="screen hidden">
     <div class="lobby-shell">
+      <div class="lobby-connection-row">
+  <div id="connStatus" class="connecting" role="status" aria-live="polite">
+    <div class="conn-dot"></div>
+    <span id="connLabel">Conectando...</span>
+    <button id="reconnectBtn" title="Tentar reconectar">↻</button>
+  </div>
+      </div>
       <div class="lobby-header">
         <div class="lobby-brand"><div class="brand-title">UOR</div><div class="brand-sub">Sala de Comando</div></div>
         <div class="lobby-account-actions">
@@ -1441,7 +1448,7 @@
         <div class="modal floating-modal">
           <button class="modal-x" id="abandonCancelXBtn" aria-label="Fechar">×</button>
           <h3>⚠️ Abandonar partida?</h3>
-          <div class="objective-text">Você ainda está em uma partida em andamento.<br><br>Se confirmar o abandono, isso será registrado como deserção e você receberá uma suspensão. Se apenas fechar o jogo, perder a conexão ou sair do navegador, você poderá retornar durante os 5 minutos.</div>
+          <div class="objective-text">Você ainda está em uma partida em andamento.<br><br>Se confirmar o abandono, você perderá 6 pontos imediatamente e receberá uma suspensão progressiva. Se apenas fechar o jogo, perder a conexão ou sair do navegador, você poderá retornar durante os 10 minutos.</div>
           <div class="modal-actions"><button class="btn btn-ghost" id="abandonCancelBtn">Continuar na partida</button><button class="btn" id="abandonConfirmBtn">Abandonar e aceitar penalidade</button></div>
         </div>
       </div>
@@ -1865,6 +1872,7 @@
   let lobbyPresenceWs = null;
   let lobbyPresenceReconnectTimer = null;
   let lobbyPresenceReconnectAttempts=0;
+  let lobbyPresenceHeartbeatTimer=null;
   let onlinePlayers = [];
   let selectedOnlinePlayer = null;
   let roomWs = null;
@@ -1896,8 +1904,13 @@
     box.classList.remove('online','offline','connecting'); box.classList.add(state);
     $('#connLabel').textContent=label;
   }
-  function markOnline(){ clearTimeout(gracePeriodTimer); setConnUI('online','Servidor UOR conectado'); }
-  function closeLobbyPresence(){if(lobbyPresenceReconnectTimer){clearTimeout(lobbyPresenceReconnectTimer);lobbyPresenceReconnectTimer=null;}if(lobbyPresenceWs){try{lobbyPresenceWs.close()}catch{}lobbyPresenceWs=null;}}
+  let lastServerReplyAt=0;
+  function markOnline(){lastServerReplyAt=Date.now();clearTimeout(gracePeriodTimer);if(navigator.onLine===false){setConnUI('offline','Sem internet');return;}setConnUI('online','Servidor conectado');}
+  function checkConnectionHealth(){if(!authUser)return;if(navigator.onLine===false){setConnUI('offline','Sem internet');return;}if(!lastServerReplyAt||Date.now()-lastServerReplyAt>20000)setConnUI('offline','Servidor sem resposta — reconectando');}
+  window.addEventListener('offline',()=>setConnUI('offline','Sem internet'));
+  window.addEventListener('online',()=>{markConnecting('Internet voltou — verificando servidor');refreshLobbyData();});
+  setInterval(checkConnectionHealth,5000);
+  function closeLobbyPresence(){if(lobbyPresenceHeartbeatTimer){clearInterval(lobbyPresenceHeartbeatTimer);lobbyPresenceHeartbeatTimer=null;}if(lobbyPresenceReconnectTimer){clearTimeout(lobbyPresenceReconnectTimer);lobbyPresenceReconnectTimer=null;}if(lobbyPresenceWs){try{lobbyPresenceWs.close()}catch{}lobbyPresenceWs=null;}}
   function renderOnlinePlayers(){
     const list=$('#onlinePlayersList');if(!list)return;
     let visible=onlinePlayers.slice();
@@ -1910,10 +1923,10 @@
     list.querySelectorAll('[data-online-player-id]').forEach(btn=>btn.addEventListener('click',()=>{const p=onlinePlayers.find(x=>x.id===btn.dataset.onlinePlayerId);if(p)openOnlinePlayerActions(p);}));
   }
   function handlePresenceSnapshot(users){onlinePlayers=(Array.isArray(users)?users:[]).filter(p=>p&&p.id).sort((a,b)=>a.nick.localeCompare(b.nick,'pt-BR',{sensitivity:'base'}));renderOnlinePlayers();}
-  function connectLobbyPresence(){if(!authUser)return;closeLobbyPresence();markOnline();const ws=new WebSocket(serverWsUrl('/ws/lobby'));lobbyPresenceWs=ws;ws.onopen=()=>{lobbyPresenceReconnectAttempts=0;markOnline();};ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='presence_snapshot')handlePresenceSnapshot(m.users||[]);else if(m.type==='kick_notice')handleKickNotice(m);}catch{}};ws.onerror=()=>{};ws.onclose=()=>{if(lobbyPresenceWs!==ws)return;lobbyPresenceWs=null;if(authUser&&!forcedLogout&&!lobbyPresenceReconnectTimer){lobbyPresenceReconnectAttempts++;const delay=Math.min(30000,1200*Math.pow(2,Math.min(5,lobbyPresenceReconnectAttempts-1)))+Math.floor(Math.random()*500);lobbyPresenceReconnectTimer=setTimeout(()=>{lobbyPresenceReconnectTimer=null;if(authUser&&!forcedLogout)connectLobbyPresence();},delay);}};}
+  function connectLobbyPresence(){if(!authUser)return;closeLobbyPresence();markConnecting();const ws=new WebSocket(serverWsUrl('/ws/lobby'));lobbyPresenceWs=ws;ws.onopen=()=>{lobbyPresenceReconnectAttempts=0;markOnline();lobbyPresenceHeartbeatTimer=setInterval(()=>{if(lobbyPresenceWs===ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'heartbeat'}));},5000);};ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='heartbeat_ack')markOnline();else if(m.type==='presence_snapshot'){markOnline();handlePresenceSnapshot(m.users||[]);}else if(m.type==='kick_notice')handleKickNotice(m);}catch{}};ws.onerror=()=>{};ws.onclose=()=>{if(lobbyPresenceWs!==ws)return;if(lobbyPresenceHeartbeatTimer){clearInterval(lobbyPresenceHeartbeatTimer);lobbyPresenceHeartbeatTimer=null;}lobbyPresenceWs=null;markOfflineWithGrace();if(authUser&&!forcedLogout&&!lobbyPresenceReconnectTimer){lobbyPresenceReconnectAttempts++;const delay=Math.min(30000,1200*Math.pow(2,Math.min(5,lobbyPresenceReconnectAttempts-1)))+Math.floor(Math.random()*500);lobbyPresenceReconnectTimer=setTimeout(()=>{lobbyPresenceReconnectTimer=null;if(authUser&&!forcedLogout)connectLobbyPresence();},delay);}};}
 
-  function markConnecting(label){ setConnUI('connecting',label||'Conectando ao servidor...'); }
-  function markOfflineWithGrace(){ clearTimeout(gracePeriodTimer); markConnecting('Reconectando ao servidor...'); gracePeriodTimer=setTimeout(()=>setConnUI('offline','Sem conexão — tentando novamente'),3500); }
+  function markConnecting(label){if(navigator.onLine===false){setConnUI('offline','Sem internet');return;}setConnUI('connecting',label||'Conectando ao servidor...');}
+  function markOfflineWithGrace(){ clearTimeout(gracePeriodTimer); markConnecting('Reconectando ao servidor...'); gracePeriodTimer=setTimeout(()=>setConnUI('offline',navigator.onLine===false?'Sem internet':'Servidor sem resposta — reconectando'),3500); }
 
   function renderColorPicker(containerId,excludeColors,selectedId,onPick){
     const grid=$('#'+containerId); if(!grid)return; grid.innerHTML=''; COLORS.forEach(c=>{
@@ -1928,7 +1941,8 @@
   function serverWsUrl(path){const proto=location.protocol==='https:'?'wss:':'ws:';return proto+'//'+location.host+path;}
   async function fetchJson(path,options={}){
     const opts={...options,headers:{'Content-Type':'application/json',...(options.headers||{})},credentials:'same-origin'};
-    const res=await fetch(path,opts); let data=null; try{data=await res.json()}catch{data={ok:false,error:'Resposta inválida do servidor.'}};
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);let res;try{res=await fetch(path,{...opts,signal:opts.signal||controller.signal});}finally{clearTimeout(timeout);} let data=null; try{data=await res.json()}catch{data={ok:false,error:'Resposta inválida do servidor.'}};
+    if(res.ok&&data.ok!==false)markOnline();
     if(!res.ok||data.ok===false)throw new Error(data.error||'Falha no servidor.'); return data;
   }
   let lobbyRefreshBusy=false;
@@ -1959,7 +1973,7 @@
     const suffix=roomConnectionSpectator?'?spectator=1':'';
     const ws=new WebSocket(serverWsUrl('/ws/rooms/'+encodeURIComponent(roomId)+suffix)); roomWs=ws;
     ws.onopen=()=>{reconnectAttempts=0;markOnline();showToast(roomConnectionSpectator?'Conectado como espectador.':'Conectado à sala de batalha.');if(roomHeartbeatTimer)clearInterval(roomHeartbeatTimer);roomHeartbeatTimer=setInterval(()=>{try{if(roomWs===ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'heartbeat'}));}catch{}},5000);};
-    ws.onmessage=e=>{try{handleClientData(JSON.parse(e.data))}catch{}};
+    ws.onmessage=e=>{try{markOnline();handleClientData(JSON.parse(e.data))}catch{}};
     ws.onclose=()=>{if(roomWs!==ws||forcedLogout)return;if(myRoomId===roomId || spectatorRoomId===roomId){markOfflineWithGrace();scheduleRoomReconnect(roomId);}};
     ws.onerror=()=>{markOfflineWithGrace();};
   }
@@ -2183,7 +2197,7 @@
       const data=await fetchJson('/api/active-match',{method:'GET'});
       const match=data.match;
       if(match && match.player && !match.player.abandoned){
-        activeReconnectMatch=match;
+        activeReconnectMatch=match;$('#accountReconnectTitle').textContent='PARTIDA EM ANDAMENTO';$('#accountReconnectBtn').disabled=false;$('#accountReconnectBtn').textContent='↻ RECONECTAR À PARTIDA';
         const overlay=$('#accountReconnectOverlay');if(overlay)overlay.classList.remove('hidden');
         updateActiveReconnectTimer();
         return true;
@@ -2194,13 +2208,14 @@
   function updateActiveReconnectTimer(){
     if(!activeReconnectMatch)return;
     const until=Number(activeReconnectMatch.player?.reconnectUntil||0);
+    if(!until){const timer=$('#accountReconnectTimer');if(timer)timer.textContent='—';if(activeReconnectTimer){clearInterval(activeReconnectTimer);activeReconnectTimer=null;}return;}
     const left=Math.max(0,until-Date.now());
     const sec=Math.ceil(left/1000);
     const mm=String(Math.floor(sec/60)).padStart(2,'0'),ss=String(sec%60).padStart(2,'0');
     const el=$('#accountReconnectTimer');if(el)el.textContent=`${mm}:${ss}`;
     if(left<=0){
       if($('#accountReconnectTitle'))$('#accountReconnectTitle').textContent='TEMPO DE RECONEXÃO ENCERRADO';
-      if($('#accountReconnectText'))$('#accountReconnectText').textContent='O prazo de 5 minutos terminou. A deserção será registrada pelo servidor.';
+      if($('#accountReconnectText'))$('#accountReconnectText').textContent='O prazo de 10 minutos terminou. A deserção será registrada pelo servidor.';
       const btn=$('#accountReconnectBtn');if(btn){btn.disabled=true;btn.textContent='PRAZO ENCERRADO';}
       if(activeReconnectTimer){clearInterval(activeReconnectTimer);activeReconnectTimer=null;}
       setTimeout(()=>{ $('#accountReconnectOverlay')?.classList.add('hidden'); connectToNetwork(); },1800);
@@ -2252,7 +2267,8 @@
     renderRoomList();
   }
 
-  async function leaveMyRoom(){if(!myRoomId)return;const rid=myRoomId;clearRecoveryCache();closeRoomSocket();try{await fetchJson(`/api/rooms/${encodeURIComponent(rid)}/leave`,{method:'POST',body:'{}'});}catch{}myRoomId=null;roomChatLog=[];$('#myRoomBar').classList.remove('show');$('#lobbyScreen').classList.remove('in-room');renderRoomChat();refreshLobbyData();}
+  async function leaveMyRoom(){if(!myRoomId)return;const rid=myRoomId;await fetchJson(`/api/rooms/${encodeURIComponent(rid)}/leave`,{method:'POST',body:'{}'});clearRecoveryCache();closeRoomSocket();myRoomId=null;roomChatLog=[];$('#myRoomBar').classList.remove('show');$('#lobbyScreen').classList.remove('in-room');renderRoomChat();refreshLobbyData();}
+
 
   function renderChat(forceScroll){const log=$('#chatLog');if(!log)return;const near=(log.scrollHeight-log.scrollTop-log.clientHeight)<80;log.innerHTML='';chatLog.forEach(m=>{const row=document.createElement('div'),d=new Date(m.ts);const time=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');if(m.system){row.className='chat-msg system';row.innerHTML=`<div class="chat-avatar">·</div><div class="chat-body"><div class="chat-text">${escapeHtml(m.text)} <span class="chat-time">${time}</span></div></div>`;}else{row.className='chat-msg';row.innerHTML=`<div class="chat-body"><span class="chat-name-wrap">${rankBadgeHTML(m.rankId||'soldado','20')}<span class="chat-name">${escapeHtml(m.name)}</span>${roleBadgeAfterNameHTML(m.role,'18')}</span> <span class="chat-text">${escapeHtml(m.text)}</span><span class="chat-time">${time}</span></div>`;}log.appendChild(row);});if(near||forceScroll)log.scrollTop=log.scrollHeight;}
   async function handleSendChatText(text){text=String(text||'').trim();if(!text)return;try{const d=await fetchJson('/api/chat',{method:'POST',body:JSON.stringify({text,color:me.color})});chatLog.push(d.entry);if(chatLog.length>200)chatLog=chatLog.slice(-200);renderChat(true);}catch(e){showToast(e.message);}}
@@ -3178,7 +3194,7 @@
   async function confirmAbandonMatch(){
     if(!myRoomId)return;
     const btn=$('#abandonConfirmBtn');if(btn){btn.disabled=true;btn.textContent='REGISTRANDO...';}
-    try{await leaveMyRoom();closeAbandonConfirm();stopMatchTimer();gameState=null;matchChatLog=[];roomChatLog=[];$('#gameScreen').classList.add('hidden');$('#lobbyScreen').classList.remove('hidden');showToast('Deserção registrada. A IA continuará a controlar seu exército.');}
+    try{await leaveMyRoom();closeAbandonConfirm();stopMatchTimer();gameState=null;matchChatLog=[];roomChatLog=[];$('#gameScreen').classList.add('hidden');$('#lobbyScreen').classList.remove('hidden');if($('#connStatus'))$('#connStatus').style.display='';showToast('Deserção registrada: −6 pontos e suspensão progressiva. A IA continuará a controlar seu exército.');}
     catch(e){showToast(e.message||'Não foi possível registrar a deserção.');}
     finally{if(btn){btn.disabled=false;btn.textContent='Abandonar e aceitar penalidade';}}
   }
@@ -3496,20 +3512,21 @@
   function renderGeneralsPanel(){
     const list = $('#generalsList');
     if(!list || !gameState || !Array.isArray(gameState.players)) return;
+    const nextTrade=calculateExchangeReward(gameState);
     const html = gameState.players.map(p=>{
       const owned = TERRITORIES.filter(t=>gameState.territories[t.id] && gameState.territories[t.id].owner===p.connId);
       const armies = owned.reduce((sum,t)=>sum + (gameState.territories[t.id].armies||0),0);
       const ai=!!p.aiControlled;
-      const abandoned=!!p.abandoned;
+      const abandoned=!!p.abandoned;const stats=gameState.playerStats?.[p.id]||{};const cards=Number(gameState.handCounts?.[p.id]??gameState.hands?.[p.id]?.length??0);
       const left=Math.max(0,Number(p.reconnectUntil||0)-Date.now());
       const sec=Math.ceil(left/1000),mm=String(Math.floor(sec/60)).padStart(2,'0'),ss=String(sec%60).padStart(2,'0');
       const aiText=abandoned?'⚠️ Deserção · 🤖 IA assumiu até o fim':(ai?`🔴 Desconectado · 🤖 Controlado por IA · ${mm}:${ss}`:'');
       return `<div class="general-row">
          <div class="general-name" title="${escapeHtml(p.name)}"><span class="general-army-avatar">${avatarHTML(p.color)}</span>${rankBadgeHTML(p.rankId||'soldado','24')}<span>${escapeHtml(p.name)}${p.connId===myConnIdForRoom()?' (você)':''}${roleBadgeAfterNameHTML(p.role,'20')}${aiText?`<span class="general-ai-status${abandoned?' abandoned':''}"><i class="general-ai-dot"></i>${aiText}</span>`:''}</span></div>
-        <div class="general-stats"><strong>${armies}</strong> soldados<br><strong>${owned.length}</strong> países</div>
+        <div class="general-stats"><strong>${armies}</strong> soldados<br><strong>${owned.length}</strong> países<br><strong>${cards}</strong> cartas<br><strong>${Number(stats.cardTrades||0)}</strong> trocas<br><strong>${Number(stats.cardsExchanged||0)}</strong> cartas trocadas<br><strong>${Number(stats.tradeArmies||0)}</strong> tropas por trocas</div>
       </div>`;
     }).join('');
-    list.innerHTML = `<div class="generals-list">${html || '<div class="waiting-note">Nenhum jogador na partida.</div>'}</div>`;
+    list.innerHTML = `<div class="generals-card-info">Trocas na partida: <strong>${Number(gameState.cardTradeCount||0)}</strong><br>Próxima troca de 3 cartas: <strong>+${nextTrade} soldados</strong><br>Sequência: 4, 6, 8, 10, 12, 15; depois +5 por troca.<br>As cartas precisam ter 3 símbolos iguais ou 1 de cada. País próprio na carta: +2 soldados. Carta de avião é armazenada separadamente.</div><div class="generals-list">${html || '<div class="waiting-note">Nenhum jogador na partida.</div>'}</div>`;
   }
 
   function playCombatEffects(){
