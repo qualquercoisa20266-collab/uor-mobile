@@ -1180,17 +1180,8 @@
   #gameScreen.map-theme-glacial .game-dock .dice-dock-slot .dice-side + .dice-side::before{background:linear-gradient(180deg,transparent,#5fc8ef 22%,#d8f7ff 50%,#5fc8ef 78%,transparent);box-shadow:0 0 6px rgba(111,218,255,.45);}
 
 
-  #safetyModal{z-index:12000;}
-  #safetyModal .modal{max-width:650px;width:min(650px,92vw);max-height:86dvh;overflow:auto;}
-  #safetyContent{font:14px/1.55 system-ui;color:#ded5c5;overflow-wrap:anywhere;}
-  #safetyContent p{margin:12px 0;}#safetyContent a,.account-policy-links a,.account-legal a{color:#d9bf80;}
-  #safetyContent textarea,#safetyContent input[type=password]{width:100%;padding:10px;background:#13171c;color:#fff;border:1px solid #806c43;border-radius:8px;}
-  #safetyContent input[type=checkbox],#accountTermsAccepted{width:auto;min-width:18px;min-height:18px;vertical-align:middle;}
-  #safetyFeedback{color:#ffb4a0;font:14px/1.5 system-ui;margin-top:10px;}
-  .safety-report{border-bottom:1px solid #806c43;padding:14px 0;}.safety-report pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.4 system-ui;}
-  .chat-safety-tools{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0;}.chat-safety-tools button{background:transparent;color:#b8a47e;border:1px solid #61543e;border-radius:5px;padding:4px 8px;font:11px system-ui;cursor:pointer;}
-  .account-policy-links{font:12px/1.5 system-ui;text-align:center;margin:12px 0;}
-  .general-safety-button{font:11px system-ui;padding:3px 6px;margin-top:5px;background:#20252b;color:#ddd;border:1px solid #6b604a;border-radius:5px;cursor:pointer;}
+  .external-account-link{font:12px/1.5 system-ui;text-align:center;margin:12px 0;}
+  .external-account-link a{color:#d9bf80;}
 </style>
 </head>
 <body class="menu-only">
@@ -1235,7 +1226,7 @@
           <div class="account-meter"><i id="accountPasswordMeter"></i></div>
           <div class="account-hint">Mínimo de 8 caracteres • use maiúscula, minúscula, número e símbolo.</div>
           <div class="account-field account-password"><label for="accountPassword2">Confirmar senha</label><input id="accountPassword2" type="password" maxlength="72" autocomplete="new-password" placeholder="Repita sua senha"><button class="account-showpass" type="button" data-pass="accountPassword2">mostrar</button></div>
-          <label class="account-legal"><input id="accountTermsAccepted" type="checkbox"> Aceito os <a href="/terms" target="_blank" rel="noopener">Termos de Uso</a> e li a <a href="/privacy" target="_blank" rel="noopener">Política de Privacidade</a>.</label><div class="account-error" id="accountCreateError"></div>
+          <div class="account-error" id="accountCreateError"></div>
           <button class="btn account-submit" id="accountCreateBtn" type="button">Criar minha conta de Jogador</button>
           <div class="account-legal">Sua senha nunca é salva em texto aberto. A autenticação será feita pelo servidor.</div>
         </div>
@@ -1249,7 +1240,7 @@
           <button class="btn account-submit" id="accountLoginBtn" type="button">Entrar no UOR</button>
           <div class="account-foot"><span>Nick permanente</span><span>Conta UOR</span></div>
         </div>
-        <div class="account-policy-links"><a href="/privacy" target="_blank" rel="noopener">Privacidade</a> · <a href="/terms" target="_blank" rel="noopener">Termos</a> · <a href="/delete-account" target="_blank" rel="noopener">Excluir conta</a></div>
+        <div class="external-account-link"><a href="/delete-account" target="_blank" rel="noopener">Excluir conta</a></div>
       </section>
     </div>
   </div>
@@ -1309,7 +1300,7 @@
           <button class="lobby-account-btn" id="openRankingBtn">🏆 RANKING</button>
           <button class="lobby-account-btn hidden role-manage-btn staff-manage-btn" id="staffPanelBtn" title="Gerenciamento STAFF">🛡 STAFF</button>
           <button class="lobby-account-btn hidden role-manage-btn admin-manage-btn" id="adminPanelBtn" title="Gerenciamento ADMIN">👑 ADMIN</button>
-          <button class="lobby-account-btn" type="button" data-account-safety>CONTA E PRIVACIDADE</button><button class="lobby-account-btn" id="logoutBtn" title="Encerrar sessão">⏻ SAIR DA CONTA</button>
+          <button class="lobby-account-btn" id="logoutBtn" title="Encerrar sessão">⏻ SAIR DA CONTA</button>
           <div class="who-am-i">
             <div class="who-avatar" id="whoAvatar"></div>
             <span id="whoName">—</span>
@@ -1497,7 +1488,7 @@
         <div class="config-menu-grid">
           <button class="config-item" id="configHomeBtn">⌂<span>Voltar</span></button>
           <button class="config-item" id="configReconnectBtn">🔑<span>Código</span></button>
-          <button class="config-item" type="button" data-account-safety>🔒<span>Conta e privacidade</span></button><button class="config-item" id="configVolumeBtn">🔊<span>Volume</span></button>
+          <button class="config-item" id="configVolumeBtn">🔊<span>Volume</span></button>
           <button class="config-item config-connection-item" id="configConnectionBtn"><span class="config-status-glyph">●</span><span>Servidor</span></button>
         </div>
         <div class="config-reconnect-area" id="configReconnectArea" style="display:none;">
@@ -1593,7 +1584,7 @@
         <button class="online-action-btn" data-online-action="history">📜 <span>Histórico</span></button>
         <button class="online-action-btn" data-online-action="stats">📊 <span>Estatísticas</span></button>
         <button class="online-action-btn" data-online-action="achievements">🏅 <span>Conquistas</span></button>
-        <button class="online-action-btn" data-online-action="report">⚑ <span>Denunciar jogador</span></button><button class="online-action-btn" id="onlineBlockBtn" data-online-action="block">⛔ <span>Bloquear mensagens</span></button><button class="online-action-btn moderation-action" id="onlineMuteBtn" data-online-action="mute">🔇 <span>Silenciar 30 min</span></button>
+        <button class="online-action-btn moderation-action" id="onlineMuteBtn" data-online-action="mute">🔇 <span>Silenciar 30 min</span></button>
       </div>
     </div>
   </div>
@@ -1605,7 +1596,7 @@
         <div><div class="profile-kicker" id="rolePowersKicker">Poderes de comando</div><h3 class="drag-handle" id="rolePowersTitle">Poderes</h3></div>
       </div>
       <div class="moderation-note" id="rolePowersNote" style="margin-top:8px;">Escolha uma ação de comando.</div>
-      <div class="role-power-actions" id="rolePowersActions"><button class="online-action-btn" type="button" data-safety-reports>⚑ <span>Avaliar denúncias</span></button>
+      <div class="role-power-actions" id="rolePowersActions">
         <button class="online-action-btn" data-role-power="mute">🔇 <span>Silenciar jogador</span></button>
         <button class="online-action-btn" data-role-power="unmute">🔊 <span>Remover silêncio</span></button>
         <button class="online-action-btn admin-power-only" data-role-power="removeSuspension">🛡 <span>Remover suspensão</span></button>
@@ -1657,7 +1648,6 @@
   </div>
 
   <!-- PERFIL / RANKING / HISTÓRICO -->
-<div class="modal-backdrop hidden" id="safetyModal" role="dialog" aria-modal="true" aria-labelledby="safetyTitle"><div class="modal"><button class="modal-x" type="button" data-safety-close aria-label="Fechar">×</button><h3 id="safetyTitle"></h3><div id="safetyContent"></div><div id="safetyFeedback" role="status"></div></div></div>
   <div class="modal-backdrop hidden" id="profileModal">
     <div class="modal floating-modal uor-profile-modal">
       <div class="profile-head drag-handle">
@@ -1667,7 +1657,7 @@
         </div>
         <button class="profile-close" id="profileCloseBtn" aria-label="Fechar">×</button>
       </div>
-      <div class="profile-tabs"><button type="button" class="profile-tab hidden" id="profileSafetyPlayer">Denunciar / bloquear</button>
+      <div class="profile-tabs">
         <button class="profile-tab active" data-profile-tab="overview">PERFIL</button>
         <button class="profile-tab" data-profile-tab="ranking">RANKING</button>
         <button class="profile-tab" data-profile-tab="history">HISTÓRICO</button>
@@ -1914,67 +1904,6 @@
   let gracePeriodTimer = null;
   let lobbyPollTimer = null;
 
-  let safetyBlockedUsers=new Map(),legalAccepted=false;
-  function safetyMessageVisible(m){return !safetyBlockedUsers.has(m.userId)&&![...safetyBlockedUsers.values()].some(n=>n===m.name);}
-  async function refreshSafety(){
-    if(!authUser)return;
-    try{const [b,t]=await Promise.all([authApi('/api/blocks',{method:'GET'}),authApi('/api/legal/status',{method:'GET'})]);safetyBlockedUsers=new Map((b.users||[]).map(u=>[u.id,u.nick]));legalAccepted=!!t.accepted;renderChat();renderRoomChat();renderMatchChat();}catch(e){}
-  }
-  function showSafetyDialog(title,content){
-    $('#safetyTitle').textContent=title;$('#safetyContent').innerHTML=content;$('#safetyFeedback').textContent='';$('#safetyModal').classList.remove('hidden');
-  }
-  function legalLinks(){return '<a href="/privacy" target="_blank" rel="noopener">Política de Privacidade</a> · <a href="/terms" target="_blank" rel="noopener">Termos de Uso</a>';}
-  async function openAccountSafety(){
-    await refreshSafety();
-    showSafetyDialog('Conta e privacidade',`<p>${legalLinks()}</p><p><a href="/delete-account" target="_blank" rel="noopener">Página externa de exclusão</a></p><p>Bloquear um jogador oculta as mensagens dele nos chats. As regras e os participantes das partidas permanecem os mesmos.</p><div>${[...safetyBlockedUsers].map(([id,nick])=>`<p>${escapeHtml(nick)} <button type="button" class="btn btn-sm" data-safety-unblock="${escapeHtml(id)}">Desbloquear</button></p>`).join('')||'<p>Nenhum jogador bloqueado.</p>'}</div><button class="btn" type="button" data-safety-terms>Regras da comunidade</button><p><button class="btn btn-danger" type="button" data-safety-delete>Excluir minha conta e dados</button></p>`);
-  }
-  function openCommunityTerms(){showSafetyDialog('Regras da comunidade',`<p>Não publique ameaças, assédio, discriminação, conteúdo sexual explícito, informações privadas de terceiros, spam ou material ilegal. Use denúncia e bloqueio para comunicar abusos. A equipe pode aplicar medidas de moderação.</p><p>${legalLinks()}</p><label><input id="safetyAcceptTerms" type="checkbox"> Aceito os Termos de Uso e li a Política de Privacidade.</label><p><button class="btn" type="button" data-safety-accept>Confirmar</button></p>`);}
-  function chatConsentReady(){if(legalAccepted)return true;openCommunityTerms();return false;}
-  function openReport(userId,nick,messageId=null,roomId=null){
-    if(!userId||userId===me.id)return;
-    showSafetyDialog('Denunciar '+(nick||'jogador'),'<p>Descreva o conteúdo ou comportamento. A denúncia será enviada à equipe de moderação.</p><label for="safetyReportReason">Motivo</label><textarea id="safetyReportReason" maxlength="800" rows="4" placeholder="Explique o ocorrido"></textarea><p><button class="btn" type="button" id="safetySendReport">Enviar denúncia</button></p>');
-    $('#safetySendReport').onclick=async()=>{const btn=$('#safetySendReport');btn.disabled=true;try{const reason=$('#safetyReportReason').value.trim();if(reason.length<3)throw Error('Descreva o motivo da denúncia.');await authApi('/api/reports',{method:'POST',body:JSON.stringify({userId,reason,messageId,roomId})});$('#safetyModal').classList.add('hidden');showToast('Denúncia registrada para avaliação pela equipe.');}catch(e){$('#safetyFeedback').textContent=e.message;}finally{btn.disabled=false;}};
-  }
-  async function toggleSafetyBlock(userId,nick){
-    if(!userId||userId===me.id)return;const blocked=!safetyBlockedUsers.has(userId);
-    await authApi('/api/blocks',{method:'POST',body:JSON.stringify({userId,blocked})});
-    if(blocked)safetyBlockedUsers.set(userId,nick);else safetyBlockedUsers.delete(userId);
-    renderChat();renderRoomChat();renderMatchChat();showToast(blocked?'Mensagens do jogador bloqueadas.':'Jogador desbloqueado.');
-  }
-  function addSafetyChatTools(row,m,roomId=null){
-    if(m.system||!m.userId||m.userId===me.id)return;
-    const tools=document.createElement('span');tools.className='chat-safety-tools';
-    const report=document.createElement('button');report.type='button';report.textContent='Denunciar';report.onclick=()=>openReport(m.userId,m.name,m.id,roomId);
-    const block=document.createElement('button');block.type='button';block.textContent='Bloquear';block.onclick=()=>toggleSafetyBlock(m.userId,m.name).catch(e=>showToast(e.message));
-    tools.append(report,block);row.appendChild(tools);
-  }
-  function openDeleteAccount(){
-    showSafetyDialog('Excluir minha conta',`<p>A exclusão é permanente. Remove sua conta, estatísticas, histórico próprio, mensagens e dados associados. Em partidas em andamento, sua posição passa para uma IA anônima.</p><label for="safetyDeletePassword">Senha atual</label><input id="safetyDeletePassword" type="password" autocomplete="current-password" maxlength="128"><label><input id="safetyDeleteConfirm" type="checkbox"> Entendo que a exclusão é permanente.</label><p><button class="btn btn-danger" type="button" id="safetyConfirmDelete">Excluir permanentemente</button></p>`);
-    $('#safetyConfirmDelete').onclick=async()=>{const btn=$('#safetyConfirmDelete');btn.disabled=true;try{if(!$('#safetyDeleteConfirm').checked)throw Error('Confirme que a exclusão é permanente.');await authApi('/api/account/delete',{method:'POST',body:JSON.stringify({password:$('#safetyDeletePassword').value,confirm:true})});forcedLogout=true;myRoomId=null;spectatorRoomId=null;closeRoomSocket();closeLobbyPresence();stopLobbyPolling();clearTabSession();clearRecoveryCache();authUser=null;gameState=null;legalAccepted=false;safetyBlockedUsers.clear();chatLog=[];roomChatLog=[];matchChatLog=[];onlinePlayers=[];document.querySelectorAll('.modal-backdrop').forEach(el=>el.classList.add('hidden'));showAccountScreen();showToast('Conta e dados excluídos.');}catch(e){$('#safetyFeedback').textContent=e.message;}finally{btn.disabled=false;}};
-  }
-  async function openReportsQueue(){
-    if(!isModerator())return;
-    const d=await authApi('/api/moderation/reports',{method:'GET'});
-    showSafetyDialog('Denúncias pendentes',(d.reports||[]).map(r=>`<article class="safety-report"><strong>${escapeHtml(r.target_nick||'Jogador')}</strong><p>Denunciante: ${escapeHtml(r.reporter_nick||'Jogador')} · ${escapeHtml(new Date(r.created_at).toLocaleString('pt-BR'))}</p><p>${escapeHtml(r.reason)}</p><pre>${escapeHtml(r.evidence||'Denúncia sobre comportamento; sem mensagem vinculada.')}</pre><button class="btn btn-sm" type="button" data-safety-report-mute="${escapeHtml(r.target_id)}">Silenciar 30 min</button> <button class="btn btn-sm" type="button" data-safety-report-resolve="${escapeHtml(r.id)}">Marcar como avaliada</button></article>`).join('')||'<p>Nenhuma denúncia pendente.</p>');
-  }
-  function bindSafety(){
-    document.addEventListener('click',async e=>{
-      const button=e.target.closest('button');if(!button)return;
-      try{
-        if(button.matches('[data-account-safety]'))return await openAccountSafety();
-        if(button.matches('[data-safety-close]')){$('#safetyModal').classList.add('hidden');return;}
-        if(button.matches('[data-safety-delete]'))return openDeleteAccount();
-        if(button.matches('[data-safety-terms]'))return openCommunityTerms();
-        if(button.matches('[data-safety-accept]')){if(!$('#safetyAcceptTerms').checked)throw Error('Leia os documentos e marque a confirmação.');await authApi('/api/legal/accept',{method:'POST',body:JSON.stringify({acceptTerms:true,legalVersion:'2026-10-01'})});legalAccepted=true;$('#safetyModal').classList.add('hidden');showToast('Regras aceitas. Você já pode enviar mensagens.');return;}
-        if(button.dataset.safetyUnblock){await toggleSafetyBlock(button.dataset.safetyUnblock,safetyBlockedUsers.get(button.dataset.safetyUnblock));return await openAccountSafety();}
-        if(button.matches('[data-safety-reports]'))return await openReportsQueue();
-        if(button.dataset.safetyReportResolve){await authApi('/api/moderation/reports',{method:'POST',body:JSON.stringify({id:button.dataset.safetyReportResolve})});return await openReportsQueue();}
-        if(button.dataset.safetyReportMute){await authApi('/api/moderation/mute',{method:'POST',body:JSON.stringify({userId:button.dataset.safetyReportMute})});showToast('Jogador silenciado por 30 minutos.');return;}
-        if(button.dataset.safetyPlayer){const p=gameState?.players?.find(p=>(p.id||p.connId)===button.dataset.safetyPlayer)||profileCache.data?.user;if(!p)return;selectedOnlinePlayer={id:p.id||p.connId,nick:p.nick||p.name,role:p.role};rolePowerAction=null;await openOnlinePlayerActions(selectedOnlinePlayer);}
-      }catch(err){if(!$('#safetyModal').classList.contains('hidden'))$('#safetyFeedback').textContent=err.message;else showToast(err.message);}
-    });
-  }
-
   function myConnIdForRoom(){ return me && me.id ? me.id : null; }
   function myPlayerId(){ return me.id; }
 
@@ -2091,7 +2020,6 @@
     const v=input.value||''; let n=0; if(v.length>=8)n++; if(/[A-Z]/.test(v))n++; if(/[a-z]/.test(v))n++; if(/[0-9]/.test(v))n++; if(/[^A-Za-z0-9]/.test(v))n++; meter.style.width=(n*20)+'%';
   }
   function setAuthUser(user){
-    legalAccepted=false;safetyBlockedUsers.clear();queueMicrotask(refreshSafety);
     authUser=user||null;
     if(authUser){
       me.id=authUser.id;
@@ -2108,7 +2036,6 @@
     const login=String($('#accountLogin')?.value||'').trim();
     const password=String($('#accountPassword')?.value||'');
     const password2=String($('#accountPassword2')?.value||'');
-    if(!$('#accountTermsAccepted').checked){if(error)error.textContent='Leia os termos e a política e marque a confirmação.';return;}
     if(nick.length<3 || nick.length>18){ if(error) error.textContent='O nick deve ter de 3 a 18 caracteres.'; return; }
     if(login.length<4 || login.length>24 || !/^[A-Za-z0-9._-]+$/.test(login)){ if(error) error.textContent='Login inválido. Use 4–24 caracteres: letras, números, ponto, hífen ou sublinhado.'; return; }
     if(password.length<8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)){ if(error) error.textContent='Senha fraca. Use pelo menos 8 caracteres, com maiúscula, minúscula, número e símbolo.'; return; }
@@ -2116,7 +2043,7 @@
     const btn=$('#accountCreateBtn');
     if(btn){btn.disabled=true;btn.textContent='Criando conta...';}
     try{
-      const data=await authApi('/api/auth/register',{method:'POST',body:JSON.stringify({nick,login,password,confirmPassword:password2,acceptTerms:true,legalVersion:'2026-10-01'})});
+      const data=await authApi('/api/auth/register',{method:'POST',body:JSON.stringify({nick,login,password,confirmPassword:password2})});
       setAuthUser(data.user||data.account||data);
       if(!authUser || !authUser.id || !authUser.nick) throw new Error('A conta foi criada, mas o servidor não retornou a identidade da conta.');
       markTabSession();
@@ -2184,7 +2111,7 @@
     try{ await fetchJson('/api/auth/logout',{method:'POST',body:'{}'}); }catch(e){}
     clearTabSession();
     clearRecoveryCache();
-    authUser=null;legalAccepted=false;safetyBlockedUsers.clear();
+    authUser=null;
     me.role='PLAYER'; updateRoleUI();
     myRoomId=null; gameState=null; matchChatLog=[]; roomChatLog=[];
     if($('#myRoomBar')) $('#myRoomBar').classList.remove('show');
@@ -2235,8 +2162,8 @@
   }
 
   let roomChatLog=[];
-  function renderRoomChat(forceScroll){const log=$('#roomChatLog');if(!log)return;const near=(log.scrollHeight-log.scrollTop-log.clientHeight)<80;log.innerHTML='';roomChatLog.filter(safetyMessageVisible).forEach(m=>{const row=document.createElement('div'),d=new Date(m.ts),time=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');row.className='chat-msg'+(m.system?' system':'');if(m.system)row.innerHTML=`<div class="chat-avatar">·</div><div class="chat-body"><div class="chat-text">${escapeHtml(m.text)} <span class="chat-time">${time}</span></div></div>`;else row.innerHTML=`<div class="chat-body"><span class="chat-name-wrap">${rankBadgeHTML(m.rankId||'soldado','20')}<span class="chat-name">${escapeHtml(m.name)}</span>${roleBadgeAfterNameHTML(m.role,'18')}</span> <span class="chat-text">${escapeHtml(m.text)}</span><span class="chat-time">${time}</span></div>`;addSafetyChatTools(row,m,myRoomId);log.appendChild(row);});if(near||forceScroll)log.scrollTop=log.scrollHeight;}
-  function sendRoomChat(){if(!chatConsentReady())return;const input=$('#roomChatInput'),text=input.value.trim();if(!text||!myRoomId)return;input.value='';sendRoomRelay({type:'room_chat',entry:{text}});}
+  function renderRoomChat(forceScroll){const log=$('#roomChatLog');if(!log)return;const near=(log.scrollHeight-log.scrollTop-log.clientHeight)<80;log.innerHTML='';roomChatLog.forEach(m=>{const row=document.createElement('div'),d=new Date(m.ts),time=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');row.className='chat-msg'+(m.system?' system':'');if(m.system)row.innerHTML=`<div class="chat-avatar">·</div><div class="chat-body"><div class="chat-text">${escapeHtml(m.text)} <span class="chat-time">${time}</span></div></div>`;else row.innerHTML=`<div class="chat-body"><span class="chat-name-wrap">${rankBadgeHTML(m.rankId||'soldado','20')}<span class="chat-name">${escapeHtml(m.name)}</span>${roleBadgeAfterNameHTML(m.role,'18')}</span> <span class="chat-text">${escapeHtml(m.text)}</span><span class="chat-time">${time}</span></div>`;log.appendChild(row);});if(near||forceScroll)log.scrollTop=log.scrollHeight;}
+  function sendRoomChat(){const input=$('#roomChatInput'),text=input.value.trim();if(!text||!myRoomId)return;input.value='';sendRoomRelay({type:'room_chat',entry:{text}});}
 
   function renderRoomList(){
     const list=$('#roomList');if(!list)return;const arr=Object.values(rooms).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));$('#roomCount').textContent=`(${arr.length})`;
@@ -2338,8 +2265,8 @@
 
   async function leaveMyRoom(){if(!myRoomId)return;const rid=myRoomId;clearRecoveryCache();closeRoomSocket();try{await fetchJson(`/api/rooms/${encodeURIComponent(rid)}/leave`,{method:'POST',body:'{}'});}catch{}myRoomId=null;roomChatLog=[];$('#myRoomBar').classList.remove('show');$('#lobbyScreen').classList.remove('in-room');renderRoomChat();refreshLobbyData();}
 
-  function renderChat(forceScroll){const log=$('#chatLog');if(!log)return;const near=(log.scrollHeight-log.scrollTop-log.clientHeight)<80;log.innerHTML='';chatLog.filter(safetyMessageVisible).forEach(m=>{const row=document.createElement('div'),d=new Date(m.ts);const time=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');if(m.system){row.className='chat-msg system';row.innerHTML=`<div class="chat-avatar">·</div><div class="chat-body"><div class="chat-text">${escapeHtml(m.text)} <span class="chat-time">${time}</span></div></div>`;}else{row.className='chat-msg';row.innerHTML=`<div class="chat-body"><span class="chat-name-wrap">${rankBadgeHTML(m.rankId||'soldado','20')}<span class="chat-name">${escapeHtml(m.name)}</span>${roleBadgeAfterNameHTML(m.role,'18')}</span> <span class="chat-text">${escapeHtml(m.text)}</span><span class="chat-time">${time}</span></div>`;}addSafetyChatTools(row,m,null);log.appendChild(row);});if(near||forceScroll)log.scrollTop=log.scrollHeight;}
-  async function handleSendChatText(text){if(!chatConsentReady())return;text=String(text||'').trim();if(!text)return;try{const d=await fetchJson('/api/chat',{method:'POST',body:JSON.stringify({text,color:me.color})});chatLog.push(d.entry);if(chatLog.length>200)chatLog=chatLog.slice(-200);renderChat(true);}catch(e){showToast(e.message);}}
+  function renderChat(forceScroll){const log=$('#chatLog');if(!log)return;const near=(log.scrollHeight-log.scrollTop-log.clientHeight)<80;log.innerHTML='';chatLog.forEach(m=>{const row=document.createElement('div'),d=new Date(m.ts);const time=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');if(m.system){row.className='chat-msg system';row.innerHTML=`<div class="chat-avatar">·</div><div class="chat-body"><div class="chat-text">${escapeHtml(m.text)} <span class="chat-time">${time}</span></div></div>`;}else{row.className='chat-msg';row.innerHTML=`<div class="chat-body"><span class="chat-name-wrap">${rankBadgeHTML(m.rankId||'soldado','20')}<span class="chat-name">${escapeHtml(m.name)}</span>${roleBadgeAfterNameHTML(m.role,'18')}</span> <span class="chat-text">${escapeHtml(m.text)}</span><span class="chat-time">${time}</span></div>`;}log.appendChild(row);});if(near||forceScroll)log.scrollTop=log.scrollHeight;}
+  async function handleSendChatText(text){text=String(text||'').trim();if(!text)return;try{const d=await fetchJson('/api/chat',{method:'POST',body:JSON.stringify({text,color:me.color})});chatLog.push(d.entry);if(chatLog.length>200)chatLog=chatLog.slice(-200);renderChat(true);}catch(e){showToast(e.message);}}
   function handleSendChat(){const input=$('#chatInput'),text=input.value.trim();if(!text)return;input.value='';handleSendChatText(text);}
 
   const DEFAULT_CLIENT_ROOM_SETTINGS={map:'classic',airAttackEnabled:true,cardLimit:'classic',soldiers:'classic'};
@@ -3054,7 +2981,7 @@
   /* ---------- recepção de mensagens de sala (game) ---------- */
   function handleRoomRelayPayload(roomId, payload){
     if(payload?.type==='moderation_system'){const entry=payload.entry||{name:'Sistema',text:'Moderação atualizada.',ts:Date.now(),system:true};roomChatLog.push(entry);matchChatLog.push(entry);renderRoomChat();renderMatchChat();return;}
-    if(payload?.type==='chat_rejected'){if(payload.code==='TERMS_REQUIRED')openCommunityTerms();else showToast(payload.reason||'Chat indisponível.');return;}
+    if(payload?.type==='chat_rejected'){showToast(payload.reason||'Chat indisponível.');return;}
     if(!payload) return;
     if(payload.type === 'match_closed'){handleMatchClosedNotice(payload.reason);return;}
     if(payload.type === 'room_chat'){
@@ -3621,7 +3548,7 @@
       const cardSummary=`🃏 ${handCount} · 🔁 ${trades}${lastReward?` · +${lastReward}`:''}${airStored?` · ✈${airStored}`:''}`;
       return `<div class="general-row">
          <div class="general-name" title="${escapeHtml(p.name)}"><span class="general-army-avatar">${avatarHTML(p.color)}</span>${rankBadgeHTML(p.rankId||'soldado','24')}<span>${escapeHtml(p.name)}${p.connId===myConnIdForRoom()?' (você)':''}${roleBadgeAfterNameHTML(p.role,'20')}${aiText?`<span class="general-ai-status${abandoned?' abandoned':''}"><i class="general-ai-dot"></i>${aiText}</span>`:''}</span></div>
-        <div class="general-stats"><strong>${armies}</strong> soldados<br><strong>${owned.length}</strong> países<br><span class="general-card-meta" title="Cartas na mão · trocas realizadas · última recompensa · ataques aéreos guardados">${cardSummary}</span>${pid!==me.id&&!p.accountDeleted?`<br><button type="button" class="general-safety-button" data-safety-player="${escapeHtml(pid)}">Denunciar / bloquear</button>`:''}</div>
+        <div class="general-stats"><strong>${armies}</strong> soldados<br><strong>${owned.length}</strong> países<br><span class="general-card-meta" title="Cartas na mão · trocas realizadas · última recompensa · ataques aéreos guardados">${cardSummary}</span></div>
       </div>`;
     }).join('');
     list.innerHTML = `<div class="generals-list">${html || '<div class="waiting-note">Nenhum jogador na partida.</div>'}</div>`;
@@ -4497,7 +4424,6 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
     profileCache.data=data;
     const s=data.stats||{}, r=data.rank||{};
     $('#profileHeaderNick').innerHTML=`${escapeHtml(data.user?.nick||me.name||'Jogador')}${roleBadgeAfterNameHTML(data.user?.role,'24')}`;
-    const safety=$('#profileSafetyPlayer');safety.classList.toggle('hidden',data.user?.id===me.id);safety.dataset.safetyPlayer=data.user?.id||'';
     $('#profileHeaderRank').textContent=r.name||'Soldado';
     $('#profileHeaderIcon').innerHTML=rankBadgeHTML(r.id,'48'); $('#profileRankIcon').innerHTML=rankBadgeHTML(r.id,'34');
     $('#profilePoints').textContent=Number(s.points||0).toLocaleString('pt-BR');
@@ -4548,10 +4474,10 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
       }catch(e){showToast(e.message);}return;
     }
     $('#onlinePlayerActionNick').innerHTML=`${escapeHtml(selectedOnlinePlayer.nick||'Jogador')}${roleBadgeAfterNameHTML(selectedOnlinePlayer.role,'24')}`;$('#onlinePlayersModal').classList.add('hidden');
-    const muteBtn=$('#onlineMuteBtn');if(muteBtn){muteBtn.style.display=isModerator()&&selectedOnlinePlayer.id!==me.id?'flex':'none';muteBtn.dataset.onlineAction='mute';muteBtn.querySelector('span').textContent='Silenciar 30 min';if(isModerator()&&selectedOnlinePlayer.id!==me.id){try{const st=await authApi(`/api/moderation/status?userId=${encodeURIComponent(selectedOnlinePlayer.id)}`,{method:'GET'});if(st.muted){muteBtn.dataset.onlineAction='unmute';muteBtn.querySelector('span').textContent='Remover silêncio';}}catch(e){}}}const blocked=safetyBlockedUsers.has(selectedOnlinePlayer.id);$('#onlineBlockBtn').querySelector('span').textContent=blocked?'Desbloquear mensagens':'Bloquear mensagens';document.querySelectorAll('[data-online-action=report],[data-online-action=block]').forEach(el=>el.style.display=selectedOnlinePlayer.id===me.id?'none':'flex');$('#onlinePlayerActionsModal').classList.remove('hidden');
+    const muteBtn=$('#onlineMuteBtn');if(muteBtn){muteBtn.style.display=isModerator()&&selectedOnlinePlayer.id!==me.id?'flex':'none';muteBtn.dataset.onlineAction='mute';muteBtn.querySelector('span').textContent='Silenciar 30 min';if(isModerator()&&selectedOnlinePlayer.id!==me.id){try{const st=await authApi(`/api/moderation/status?userId=${encodeURIComponent(selectedOnlinePlayer.id)}`,{method:'GET'});if(st.muted){muteBtn.dataset.onlineAction='unmute';muteBtn.querySelector('span').textContent='Remover silêncio';}}catch(e){}}}$('#onlinePlayerActionsModal').classList.remove('hidden');
   }
   function closeOnlinePlayerActions(){$('#onlinePlayerActionsModal')?.classList.add('hidden');selectedOnlinePlayer=null;}
-  async function chooseOnlinePlayerAction(action){const p=selectedOnlinePlayer;if(!p)return;if(action==='report'){closeOnlinePlayerActions();openReport(p.id,p.nick);return;}if(action==='block'){try{await toggleSafetyBlock(p.id,p.nick);closeOnlinePlayerActions();}catch(e){showToast(e.message);}return;}if(action==='mute'||action==='unmute'){try{const endpoint=action==='mute'?'/api/moderation/mute':'/api/moderation/unmute';const result=await authApi(endpoint,{method:'POST',body:JSON.stringify({userId:p.id})});if(result.system){chatLog.push(result.system);renderChat(true);}showToast(action==='mute'?`${p.nick} foi silenciado por 30 minutos.`:`Silêncio de ${p.nick} removido.`);closeOnlinePlayerActions();refreshLobbyData();return;}catch(e){showToast(e.message);return;}}closeOnlinePlayerActions();if(action==='history')openPublicProfile(p.id,'history').catch(e=>showToast(e.message));else if(action==='stats')openPublicProfile(p.id,'overview','profileStatsCard').catch(e=>showToast(e.message));else if(action==='achievements')openPublicProfile(p.id,'overview','profileAchievementsCard').catch(e=>showToast(e.message));else openPublicProfile(p.id,'overview').catch(e=>showToast(e.message));}
+  async function chooseOnlinePlayerAction(action){const p=selectedOnlinePlayer;if(!p)return;if(action==='mute'||action==='unmute'){try{const endpoint=action==='mute'?'/api/moderation/mute':'/api/moderation/unmute';const result=await authApi(endpoint,{method:'POST',body:JSON.stringify({userId:p.id})});if(result.system){chatLog.push(result.system);renderChat(true);}showToast(action==='mute'?`${p.nick} foi silenciado por 30 minutos.`:`Silêncio de ${p.nick} removido.`);closeOnlinePlayerActions();refreshLobbyData();return;}catch(e){showToast(e.message);return;}}closeOnlinePlayerActions();if(action==='history')openPublicProfile(p.id,'history').catch(e=>showToast(e.message));else if(action==='stats')openPublicProfile(p.id,'overview','profileStatsCard').catch(e=>showToast(e.message));else if(action==='achievements')openPublicProfile(p.id,'overview','profileAchievementsCard').catch(e=>showToast(e.message));else openPublicProfile(p.id,'overview').catch(e=>showToast(e.message));}
 
   async function loadAdminUsers(){
     const list=$('#adminUsersList');if(!list)return;
@@ -4737,16 +4663,16 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
     const log = $('#matchChatLog');
     const wasNearBottom = (log.scrollHeight - log.scrollTop - log.clientHeight) < 80;
     log.innerHTML = '';
-    matchChatLog.filter(safetyMessageVisible).forEach(m=>{
+    matchChatLog.forEach(m=>{
       const row = document.createElement('div'); row.className = 'chat-msg';
       const timeStr = new Date(m.ts).getHours().toString().padStart(2,'0') + ':' + new Date(m.ts).getMinutes().toString().padStart(2,'0');
       row.innerHTML = `<div class="chat-body"><span class="chat-name-wrap">${rankBadgeHTML(m.rankId||'soldado','20')}<span class="chat-name">${escapeHtml(m.name)}</span>${roleBadgeAfterNameHTML(m.role,'18')}</span> <span class="chat-text">${escapeHtml(m.text)}</span><span class="chat-time">${timeStr}</span></div>`;
-      addSafetyChatTools(row,m,myRoomId||spectatorRoomId);log.appendChild(row);
+      log.appendChild(row);
     });
     if(wasNearBottom) log.scrollTop = log.scrollHeight;
   }
   function sendMatchChat(){
-    if(!chatConsentReady())return;
+    
     const input = $('#matchChatInput');
     const text = input.value.trim();
     if(!text || !gameState) return;
@@ -4870,7 +4796,6 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
      EVENTOS
   ============================================================ */
   window.addEventListener('DOMContentLoaded', ()=>{
-    bindSafety();
     spawnEmbers();
     bootAuth();
     updateChatNotification();
