@@ -4779,7 +4779,7 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
     panel.dataset.dragReady = '1';
     let drag=null;
     handle.addEventListener('pointerdown', e=>{
-      if(e.target.closest('.panel-close')) return;
+      if(e.target.closest('button,a,input,select,textarea,[role="button"],.panel-close,.profile-close,.modal-x,[data-close-panel],[data-close-modal]')) return;
       const r=panel.getBoundingClientRect();
       drag={x:e.clientX,y:e.clientY,left:r.left,top:r.top};
       panel.style.position='fixed'; panel.style.left=r.left+'px'; panel.style.top=r.top+'px'; panel.style.right='auto'; panel.style.bottom='auto'; panel.style.margin='0';
