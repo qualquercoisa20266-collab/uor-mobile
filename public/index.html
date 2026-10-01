@@ -45,10 +45,13 @@
   .screen{ position:relative; z-index:2; width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
   .hidden{display:none !important;}
 
-  #connStatus{ position:fixed; top:14px; right:14px; z-index:60; display:flex; align-items:center; gap:8px;
+  #connStatus{ position:relative; top:auto; right:auto; z-index:auto; display:flex; align-items:center; gap:8px;
     background:rgba(10,9,8,0.85); border:1px solid var(--line); padding:7px 12px 7px 10px; border-radius:22px;
     font-family:'JetBrains Mono', monospace; font-size:0.68rem; letter-spacing:0.02em; backdrop-filter:blur(6px);
     box-shadow:0 8px 24px -10px rgba(0,0,0,0.7); transition:border-color 0.3s; max-width:min(70vw, 320px); }
+  .lobby-connection-row{display:flex;justify-content:flex-end;flex:0 0 auto;min-height:36px;margin-bottom:8px;}
+  .lobby-connection-row #connStatus{max-width:100%;box-sizing:border-box;flex-wrap:wrap;}
+  .lobby-connection-row #connLabel{min-width:0;overflow-wrap:anywhere;}
   #connStatus.online{ border-color:rgba(63,174,90,0.4); }
   #connStatus.offline{ border-color:rgba(225,74,63,0.5); }
   #connStatus.connecting{ border-color:rgba(201,162,75,0.5); }
@@ -1183,11 +1186,7 @@
   <div id="embers"></div>
   <div class="vignette"></div>
 
-  <div id="connStatus" class="connecting">
-    <div class="conn-dot"></div>
-    <span id="connLabel">Conectando...</span>
-    <button id="reconnectBtn" title="Tentar reconectar">↻</button>
-  </div>
+
 
   <!-- ============ CONTA UOR ============ -->
   <div id="accountScreen" class="screen">
@@ -1282,6 +1281,13 @@
   <!-- ============ TELA 2: LOBBY (chat global + salas) ============ -->
   <div id="lobbyScreen" class="screen hidden">
     <div class="lobby-shell">
+      <div class="lobby-connection-row">
+  <div id="connStatus" class="connecting">
+    <div class="conn-dot"></div>
+    <span id="connLabel">Conectando...</span>
+    <button id="reconnectBtn" title="Tentar reconectar">↻</button>
+  </div>
+      </div>
       <div class="lobby-header">
         <div class="lobby-brand"><div class="brand-title">UOR</div><div class="brand-sub">Sala de Comando</div></div>
         <div class="lobby-account-actions">
@@ -1295,7 +1301,6 @@
             <span id="whoName">—</span>
           </div>
           <div id="globalControls" aria-label="Controles do jogo">
-            <button id="homeBtn" title="Voltar ao menu inicial" aria-label="Voltar ao menu inicial">⌂</button>
             <div id="globalVolumeControl">
               <button id="globalVolumeIcon" type="button" title="Abrir/fechar controle de volume" aria-label="Abrir/fechar controle de volume">🔊</button>
               <input id="globalVolumeSlider" type="range" min="0" max="10" value="7" step="1" aria-label="Volume">
@@ -1592,11 +1597,14 @@
         <button class="online-action-btn admin-power-only" data-role-power="removeSuspension">🛡 <span>Remover suspensão</span></button>
         <button class="online-action-btn" data-role-power="watch">👁 <span>Assistir partida</span></button>
         <button class="online-action-btn admin-power-only" data-role-power="role">⚙ <span>Dar cargo</span></button>
-        <button class="online-action-btn" data-role-power="kick">👢 <span>Kick</span></button>
-        <button class="online-action-btn" data-role-power="kick:5">⏱ <span>Kick 5 min</span></button>
-        <button class="online-action-btn" data-role-power="kick:10">⏱ <span>Kick 10 min</span></button>
-        <button class="online-action-btn" data-role-power="kick:20">⏱ <span>Kick 20 min</span></button>
-        <button class="online-action-btn" data-role-power="kick:30">⏱ <span>Kick 30 min</span></button>
+        <button class="online-action-btn" id="toggleKickOptions" aria-expanded="false" aria-controls="roleKickOptions">👢 <span>Kick ▾</span></button>
+        <div id="roleKickOptions" class="hidden" style="grid-column:1/-1;display:none;gap:8px;flex-wrap:wrap;">
+          <button class="online-action-btn" data-role-power="kick:0">0 min</button>
+          <button class="online-action-btn" data-role-power="kick:5">5 min</button>
+          <button class="online-action-btn admin-power-only" data-role-power="kick:10">10 min</button>
+          <button class="online-action-btn admin-power-only" data-role-power="kick:20">20 min</button>
+          <button class="online-action-btn" data-role-power="kick:30">30 min</button>
+        </div>
       </div>
     </div>
   </div>
@@ -4575,10 +4583,16 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
     updateMyRoomBar();
     if(wasSpectator)refreshLobbyData();
   }
-  function openRolePowers(){
+  let rolePowersMode = 'STAFF';
+  function openRolePowers(mode='STAFF'){
+    if(!isModerator())return;
+    rolePowersMode=mode==='ADMIN'&&isAdminClient()?'ADMIN':'STAFF';
     updateRoleUI();
     rolePowerAction=null;
-    const admin=isAdminClient();
+    const admin=rolePowersMode==='ADMIN';
+    $('#roleKickOptions').classList.add('hidden');
+    $('#roleKickOptions').style.display='none';
+    $('#toggleKickOptions').setAttribute('aria-expanded','false');
     $('#rolePowersKicker').textContent=admin?'Comando máximo':'Comando STAFF';
     $('#rolePowersTitle').textContent=admin?'Poderes ADMIN':'Poderes STAFF';
     $('#rolePowersNote').textContent=admin?'Silencie, remova silêncio/suspensão, assista partidas, altere cargos ou aplique Kick.':'Silencie/remova silêncio, assista partidas ou aplique Kick.';
@@ -4586,6 +4600,9 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
     $('#rolePowersModal')?.classList.remove('hidden');
   }
   function beginRolePowerAction(action){
+    if(!isModerator())return;
+    const staffActions=['mute','unmute','watch','kick:0','kick:5','kick:30'];
+    if((rolePowersMode!=='ADMIN'||!isAdminClient())&&!staffActions.includes(action))return;
     if(action==='watch'){rolePowerAction=null;openWatchMatches();return;}
     if(action==='role'){rolePowerAction=null;openAdminUsers('roles');return;}
     if(action==='removeSuspension'){rolePowerAction=null;$('#rolePowersModal')?.classList.add('hidden');openAdminUsers('suspensions');return;}
@@ -4812,7 +4829,6 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
       }
     }
     $('#turnAlertPlayBtn').addEventListener('click', ()=>{ensureAudioCtx();confirmTurnAlert();});
-    $('#homeBtn').addEventListener('click', goHome);
     $('#logoutBtn')?.addEventListener('click', logoutAccount);
     let initialVolume=7;try{initialVolume=parseInt(localStorage.getItem('war_volume_level')||'7',10);}catch(e){}setGlobalVolume(initialVolume);
     startAmbientMusic();
@@ -4839,11 +4855,12 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
     $('#confirmJoinBtn').addEventListener('click', confirmJoin);
     $('#joinModal').addEventListener('click', e=>{ if(e.target.id === 'joinModal') closeJoinModal(); });
     document.querySelectorAll('[data-close-modal]').forEach(btn=>btn.addEventListener('click', ()=> $('#'+btn.dataset.closeModal).classList.add('hidden')));
-    // Fechamento por pointerdown em captura: funciona de forma idêntica no mouse, caneta e toque,
-    // mesmo quando uma janela arrastável capturou eventos de ponteiro.
-    document.addEventListener('pointerdown',e=>{
-      const btn=e.target.closest?.('.modal-x');if(!btn)return;
-      e.preventDefault();e.stopPropagation();
+    // Um único fechamento por click atende mouse, toque e ativação pelo teclado.
+    document.addEventListener('click',e=>{
+      const btn=e.target.closest?.('.modal-x,[data-close-panel],[data-close-modal]');
+      if(!btn)return;
+      e.preventDefault();e.stopImmediatePropagation();
+      if(btn.dataset.closePanel){hidePanel(btn.dataset.closePanel);return;}
       const id=btn.id||'';
       if(id==='victoryXBtn'){ $('#victoryModal')?.classList.add('hidden');leaveGameScreen();return; }
       if(id==='onlinePlayerActionsCloseBtn'){closeOnlinePlayerActions();return;}
@@ -4856,24 +4873,12 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
       const targetId=btn.dataset.closeModal||btn.closest('.modal-backdrop')?.id;
       if(targetId)$('#'+targetId)?.classList.add('hidden');
     },true);
-    // Suprime o click sintético posterior: o fechamento já foi executado no pointerdown.
-    document.addEventListener('click',e=>{
-      if(!e.target.closest?.('.modal-x'))return;
-      e.preventDefault();e.stopImmediatePropagation();
-    },true);
-    document.addEventListener('pointerdown',e=>{
-      const btn=e.target.closest?.('[data-close-panel]');if(!btn)return;
-      e.preventDefault();e.stopPropagation();hidePanel(btn.dataset.closePanel);
-    },true);
-    document.addEventListener('click',e=>{
-      if(!e.target.closest?.('[data-close-panel]'))return;
-      e.preventDefault();e.stopImmediatePropagation();
-    },true);
 
     const openModerationPlayers=()=>{updateRoleUI();renderOnlinePlayers();$('#onlinePlayersModal').classList.remove('hidden');};
     $('#onlinePlayersBtn').addEventListener('click', openModerationPlayers);
-    $('#staffPanelBtn')?.addEventListener('click', openRolePowers);
-    $('#adminPanelBtn')?.addEventListener('click', openRolePowers);
+    $('#staffPanelBtn')?.addEventListener('click', ()=>openRolePowers('STAFF'));
+    $('#adminPanelBtn')?.addEventListener('click', ()=>openRolePowers('ADMIN'));
+    $('#toggleKickOptions').addEventListener('click',()=>{const el=$('#roleKickOptions');const open=el.classList.contains('hidden');el.classList.toggle('hidden',!open);el.style.display=open?'flex':'none';$('#toggleKickOptions').setAttribute('aria-expanded',String(open));});
     $('#rolePowersCloseBtn')?.addEventListener('click', ()=>{rolePowerAction=null;$('#rolePowersModal').classList.add('hidden');});
     $('#kickNoticeCloseBtn')?.addEventListener('click', closeKickNotice);
     $('#kickNoticeOkBtn')?.addEventListener('click', closeKickNotice);
