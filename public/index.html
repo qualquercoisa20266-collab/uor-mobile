@@ -930,9 +930,8 @@
   /* Versão atual do jogo — só aparece na tela principal (dentro de #accountScreen) */
   #uorVersion{
     position:absolute;
-    left:50%;
+    right:12px;
     bottom:max(8px, env(safe-area-inset-bottom));
-    transform:translateX(-50%);
     z-index:5;
     color:#d8a64b;
     opacity:.42;
@@ -1183,7 +1182,7 @@
   .external-account-link{font:12px/1.5 system-ui;text-align:center;margin:12px 0;}
   .external-account-link a{color:#d9bf80;}
 </style>
-</head>
+<style>.external-account-link button,#termsOpenBtn{background:none;border:0;color:#d9bf80;text-decoration:underline;font:inherit;cursor:pointer;padding:0}.legal-backdrop{z-index:12000!important}.legal-dialog{position:relative;width:min(760px,94vw);max-height:85dvh;overflow:auto;padding:34px 22px!important}.legal-content{font:14px/1.65 system-ui;color:#eee}.legal-content a{color:#b7dbff}.legal-content h2{font-size:20px}.legal-content h3{font-size:16px}.report-row{border-bottom:1px solid #777;padding:15px 0}</style></head>
 <body class="menu-only">
 <div id="app">
   <div class="map-texture"></div>
@@ -1194,7 +1193,7 @@
 
   <!-- ============ CONTA UOR ============ -->
   <div id="accountScreen" class="screen">
-    <div id="uorVersion" aria-label="Versão do jogo">v1.0.7</div>
+    <div id="uorVersion" aria-label="Versão do jogo">v2.10.0 · 29004</div>
     <div class="account-shell">
       <section class="account-hero">
         <div class="account-kicker">COMANDO CENTRAL</div>
@@ -1226,7 +1225,7 @@
           <div class="account-meter"><i id="accountPasswordMeter"></i></div>
           <div class="account-hint">Mínimo de 8 caracteres • use maiúscula, minúscula, número e símbolo.</div>
           <div class="account-field account-password"><label for="accountPassword2">Confirmar senha</label><input id="accountPassword2" type="password" maxlength="72" autocomplete="new-password" placeholder="Repita sua senha"><button class="account-showpass" type="button" data-pass="accountPassword2">mostrar</button></div>
-          <div class="account-error" id="accountCreateError"></div>
+          <label style="font:12px/1.5 system-ui"><input type="checkbox" id="accountTermsAccept"> Li e aceito os <button type="button" id="termsOpenBtn">Termos de uso</button>.</label><div class="account-error" id="accountCreateError"></div>
           <button class="btn account-submit" id="accountCreateBtn" type="button">Criar minha conta de Jogador</button>
           <div class="account-legal">Sua senha nunca é salva em texto aberto. A autenticação será feita pelo servidor.</div>
         </div>
@@ -1240,7 +1239,7 @@
           <button class="btn account-submit" id="accountLoginBtn" type="button">Entrar no UOR</button>
           <div class="account-foot"><span>Nick permanente</span><span>Conta UOR</span></div>
         </div>
-        <div class="external-account-link"><a href="/delete-account" target="_blank" rel="noopener">Excluir conta</a></div>
+        <div class="external-account-link"><button type="button" id="privacyOpenBtn">Política de privacidade</button> · <a href="/delete-account" target="_blank" rel="noopener">Excluir conta</a></div><div class="modal-backdrop hidden legal-backdrop" id="privacyModal" role="dialog" aria-modal="true" aria-label="Política de privacidade"><div class="modal legal-dialog"><button type="button" class="modal-x" data-close-legal="privacyModal" aria-label="Fechar">×</button><div class="legal-content"><h2>Política de privacidade — UOR</h2><p>Versão de 1 de outubro de 2026. Responsável: Luiz Augusto. Contato: <a href="mailto:uorgame20277@gmail.com">uorgame20277@gmail.com</a>. Site: uorgame.com.br.</p><h3>Dados e finalidades</h3><p>Usamos login, nick público, senha armazenada como hash com salt, identificador da conta e sessões para autenticação. Guardamos estatísticas, histórico de partidas, preferências de bloqueio de mensagens, aceite dos termos e registros de moderação para funcionamento do jogo, segurança e atendimento. Mensagens enviadas nos chats e seu nick ficam visíveis aos participantes do respectivo chat. Não envie informações pessoais no chat.</p><p>Para limitar tentativas de acesso, o servidor usa um identificador derivado do endereço IP por hash com segredo. Cloudflare hospeda o serviço e pode processar IP, dados de conexão e registros técnicos. O site carrega fontes do Google Fonts, que recebe dados de conexão ao fornecer as fontes. Esses provedores podem processar dados fora do Brasil. Consulte também as políticas de Cloudflare e Google.</p><h3>Aplicativo, cookies e compartilhamento</h3><p>O aplicativo usa conexão à internet, cookies de sessão e armazenamento local para acesso e recuperação da partida. Esta versão não integra anúncios, pagamentos nem ferramentas de análise de publicidade e não solicita câmera, microfone, localização ou contatos. Dados necessários são tratados pelos provedores de infraestrutura; mensagens públicas são compartilhadas com participantes e denúncias com a equipe de moderação.</p><h3>Retenção e exclusão</h3><p>Dados de conta permanecem enquanto a conta existir. Sessões expiram em até 30 dias. O chat global mantém até 200 mensagens e remove mensagens com mais de 10 minutos nas rotinas de limpeza. Salas mantêm até 100 mensagens recentes para apuração de denúncias, além do histórico temporário apresentado no cliente. Denúncias são mantidas por até 90 dias, com limpeza nas operações de denúncia e moderação. Registros de segurança e infraestrutura seguem também as políticas dos provedores.</p><p>Use <a href="/delete-account" target="_blank" rel="noopener">Excluir conta</a> na tela inicial ou acesse uorgame.com.br/delete-account pelo navegador. Informe login e senha e confirme. Dados associados à sua conta são removidos; sua posição em partidas em andamento é transferida para uma IA anônima. Registros compartilhados de outras pessoas podem permanecer sem sua identificação. Se uma exclusão falhar, repita a solicitação; a solicitação pendente impede novos acessos.</p><h3>Seus direitos e segurança</h3><p>Solicite acesso, correção, informações ou exclusão pelo contato acima. Não envie sua senha por e-mail. Usamos HTTPS, hash de senhas e controle de acesso; nenhum sistema garante segurança absoluta. Não colete nem publique dados de menores ou de terceiros. Mudanças relevantes nesta política serão indicadas nesta página com nova data.</p></div></div></div>
       </section>
     </div>
   </div>
@@ -1369,7 +1368,6 @@
           <span class="t-text" id="turnText">—</span>
         </div>
         <div class="phase-badge" id="phaseBadge">—</div>
-        <div class="uor-version-badge" aria-label="Versão do jogo">UOR 2.5</div>
         <div class="match-timer" title="Tempo desde o início da partida">⏱ <strong id="matchTimer">00:00</strong></div>
         <div class="topbar-actions">
           <button class="btn-small" id="gameConfigBtn" aria-label="Abrir configurações">⚙ Configuração</button>
@@ -1584,7 +1582,7 @@
         <button class="online-action-btn" data-online-action="history">📜 <span>Histórico</span></button>
         <button class="online-action-btn" data-online-action="stats">📊 <span>Estatísticas</span></button>
         <button class="online-action-btn" data-online-action="achievements">🏅 <span>Conquistas</span></button>
-        <button class="online-action-btn" id="personalMuteBtn" data-online-action="personal-mute">🔇 <span>Mutar para mim</span></button>
+        <button class="online-action-btn" data-online-action="report">⚑ <span>Denunciar jogador</span></button><button class="online-action-btn" id="personalMuteBtn" data-online-action="personal-mute">🔇 <span>Mutar para mim</span></button>
         <button class="online-action-btn moderation-action" id="onlineMuteBtn" data-online-action="mute">🔇 <span>Silenciar 30 min</span></button>
       </div>
     </div>
@@ -1597,7 +1595,7 @@
         <div><div class="profile-kicker" id="rolePowersKicker">Poderes de comando</div><h3 class="drag-handle" id="rolePowersTitle">Poderes</h3></div>
       </div>
       <div class="moderation-note" id="rolePowersNote" style="margin-top:8px;">Escolha uma ação de comando.</div>
-      <div class="role-power-actions" id="rolePowersActions">
+      <button type="button" class="online-action-btn" id="reviewReportsBtn">⚑ Denúncias</button><div class="role-power-actions" id="rolePowersActions">
         <button class="online-action-btn" data-role-power="mute">🔇 <span>Silenciar jogador</span></button>
         <button class="online-action-btn" data-role-power="unmute">🔊 <span>Remover silêncio</span></button>
         <button class="online-action-btn admin-power-only" data-role-power="removeSuspension">🛡 <span>Remover suspensão</span></button>
@@ -1860,7 +1858,11 @@
   function applyPersonalMutes(ids,players){personalMuteRevision++;if(Array.isArray(players))personalMutePlayers=players;personalMuted=new Set((Array.isArray(ids)?ids:[]).filter(id=>typeof id==='string'));try{localStorage.setItem('uor_chat_mutes_'+me.id,JSON.stringify([...personalMuted]));}catch{}renderChat();renderRoomChat();if($('#matchChatLog'))renderMatchChat();if(gameState)renderGeneralsPanel();renderOnlinePlayers();}
   function isPersonallyMuted(m){loadPersonalMutes();return !!m&&!m.system&&personalMuted.has(m.userId||m.id||m.connId);}
   async function togglePersonalMute(id){loadPersonalMutes();if(!id||id===me.id)return;const muted=!personalMuted.has(id);try{const d=await fetchJson('/api/chat/mutes',{method:'POST',body:JSON.stringify({userId:id,muted})});applyPersonalMutes(d.ids,d.players);showToast(muted?'Jogador mutado para você.':'Jogador desmutado para você.');}catch(e){showToast(e.message);}}
-  function addPersonalMuteButton(row,m){if(m.system||!m.userId||m.userId===me.id)return;const btn=document.createElement('button');btn.type='button';btn.textContent='🔇';btn.title='Mutar este jogador para mim';btn.setAttribute('aria-label',btn.title);btn.style.cssText='margin-left:6px;cursor:pointer;background:transparent;color:inherit;border:0';btn.onclick=()=>togglePersonalMute(m.userId);row.appendChild(btn);}
+
+  async function reportPlayer(userId,messageId,roomId){const reason=prompt('Motivo da denúncia (5 a 500 caracteres):');if(!reason)return;try{await authApi('/api/reports',{method:'POST',body:JSON.stringify({userId,messageId,roomId,reason})});showToast('Denúncia enviada à equipe. Você também pode mutar o jogador.');}catch(e){showToast(e.message);}}
+  async function reviewReports(){if(!isModerator())return;try{const d=await authApi('/api/moderation/reports',{method:'GET'}),list=$('#reportsReviewList');list.innerHTML=(d.reports||[]).map(r=>`<div class="report-row"><strong>${escapeHtml(r.targetNick||r.target_id)}</strong> — ${escapeHtml(r.status)}<p>${escapeHtml(r.reason)}</p><pre style="white-space:pre-wrap">${escapeHtml(r.evidence)}</pre><button data-report-status="reviewed" data-report-id="${escapeHtml(r.id)}">Analisada</button> <button data-report-status="dismissed" data-report-id="${escapeHtml(r.id)}">Arquivar</button></div>`).join('')||'Nenhuma denúncia.';list.querySelectorAll('[data-report-id]').forEach(b=>b.onclick=async()=>{try{await authApi('/api/moderation/reports',{method:'POST',body:JSON.stringify({id:b.dataset.reportId,status:b.dataset.reportStatus})});await reviewReports();}catch(e){showToast(e.message);}});openUorLegal('reportsReviewModal');}catch(e){showToast(e.message);}}
+
+  function addPersonalMuteButton(row,m){if(m.system||!m.userId||m.userId===me.id)return;const btn=document.createElement('button');btn.type='button';btn.textContent='🔇';btn.title='Mutar este jogador para mim';btn.setAttribute('aria-label',btn.title);btn.style.cssText='margin-left:6px;cursor:pointer;background:transparent;color:inherit;border:0';btn.onclick=()=>togglePersonalMute(m.userId);row.appendChild(btn);const report=document.createElement('button');report.type='button';report.textContent='⚑';report.title='Denunciar mensagem';report.setAttribute('aria-label',report.title);report.style.cssText=btn.style.cssText;report.onclick=()=>reportPlayer(m.userId,m.id, row.parentNode?.id==='chatLog'?null:myRoomId);row.appendChild(report);}
 
   let authBooted = false;
   // Sessão só vale enquanto a aba/app estiver aberto: fechou → precisa logar de novo.
@@ -2051,7 +2053,7 @@
     const btn=$('#accountCreateBtn');
     if(btn){btn.disabled=true;btn.textContent='Criando conta...';}
     try{
-      const data=await authApi('/api/auth/register',{method:'POST',body:JSON.stringify({nick,login,password,confirmPassword:password2})});
+      const data=await authApi('/api/auth/register',{method:'POST',body:JSON.stringify({nick,login,password,confirmPassword:password2,acceptTerms:$('#accountTermsAccept').checked})});
       setAuthUser(data.user||data.account||data);
       if(!authUser || !authUser.id || !authUser.nick) throw new Error('A conta foi criada, mas o servidor não retornou a identidade da conta.');
       markTabSession();
@@ -2158,7 +2160,8 @@
     if(msg.type==='leave_room'){leaveMyRoom();return;}
     if(msg.type==='room_relay')sendRoomRelay(msg.payload);
   }
-  function sendRoomRelay(payload){
+  async function sendRoomRelay(payload){
+    if(['room_chat','game_chat'].includes(payload?.type)&&!await ensureChatTerms())return;
     if(!roomWs||roomWs.readyState!==WebSocket.OPEN){showToast('Sem conexão com o servidor da partida.');return;}
     let msg=null;
     if(payload?.type==='game_action')msg={type:'game_action',action:payload.action};
@@ -2275,7 +2278,7 @@
   async function leaveMyRoom(){if(!myRoomId)return;const rid=myRoomId;clearRecoveryCache();closeRoomSocket();try{await fetchJson(`/api/rooms/${encodeURIComponent(rid)}/leave`,{method:'POST',body:'{}'});}catch{}myRoomId=null;roomChatLog=[];$('#myRoomBar').classList.remove('show');$('#lobbyScreen').classList.remove('in-room');renderRoomChat();refreshLobbyData();}
 
   function renderChat(forceScroll){const log=$('#chatLog');if(!log)return;const near=(log.scrollHeight-log.scrollTop-log.clientHeight)<80;log.innerHTML='';chatLog.slice(-200).filter(m=>!isPersonallyMuted(m)).forEach(m=>{const row=document.createElement('div'),d=new Date(m.ts);const time=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');if(m.system){row.className='chat-msg system';row.innerHTML=`<div class="chat-avatar">·</div><div class="chat-body"><div class="chat-text">${escapeHtml(m.text)} <span class="chat-time">${time}</span></div></div>`;}else{row.className='chat-msg';row.innerHTML=`<div class="chat-body"><span class="chat-name-wrap">${rankBadgeHTML(m.rankId||'soldado','20')}<span class="chat-name">${escapeHtml(m.name)}</span>${roleBadgeAfterNameHTML(m.role,'18')}</span> <span class="chat-text">${escapeHtml(m.text)}</span><span class="chat-time">${time}</span></div>`;}addPersonalMuteButton(row,m);log.appendChild(row);});if(near||forceScroll)log.scrollTop=log.scrollHeight;}
-  async function handleSendChatText(text){text=String(text||'').trim();if(!text)return;try{const d=await fetchJson('/api/chat',{method:'POST',body:JSON.stringify({text,color:me.color})});chatLog.push(d.entry);if(chatLog.length>200)chatLog=chatLog.slice(-200);renderChat(true);}catch(e){showToast(e.message);}}
+  async function handleSendChatText(text){text=String(text||'').trim();if(!text)return;try{if(!await ensureChatTerms())return;const d=await fetchJson('/api/chat',{method:'POST',body:JSON.stringify({text,color:me.color})});chatLog.push(d.entry);if(chatLog.length>200)chatLog=chatLog.slice(-200);renderChat(true);}catch(e){showToast(e.message);}}
   function handleSendChat(){const input=$('#chatInput'),text=input.value.trim();if(!text)return;input.value='';handleSendChatText(text);}
 
   const DEFAULT_CLIENT_ROOM_SETTINGS={map:'classic',airAttackEnabled:true,cardLimit:'classic',soldiers:'classic'};
@@ -4488,7 +4491,7 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
     loadPersonalMutes();const personalBtn=$('#personalMuteBtn');if(personalBtn){personalBtn.style.display=selectedOnlinePlayer.id===me.id?'none':'flex';personalBtn.querySelector('span').textContent=personalMuted.has(selectedOnlinePlayer.id)?'Desmutar para mim':'Mutar para mim';}const muteBtn=$('#onlineMuteBtn');if(muteBtn){muteBtn.style.display=isModerator()&&selectedOnlinePlayer.id!==me.id?'flex':'none';muteBtn.dataset.onlineAction='mute';muteBtn.querySelector('span').textContent='Silenciar 30 min';if(isModerator()&&selectedOnlinePlayer.id!==me.id){try{const st=await authApi(`/api/moderation/status?userId=${encodeURIComponent(selectedOnlinePlayer.id)}`,{method:'GET'});if(st.muted){muteBtn.dataset.onlineAction='unmute';muteBtn.querySelector('span').textContent='Remover silêncio';}}catch(e){}}}$('#onlinePlayerActionsModal').classList.remove('hidden');
   }
   function closeOnlinePlayerActions(){$('#onlinePlayerActionsModal')?.classList.add('hidden');selectedOnlinePlayer=null;}
-  async function chooseOnlinePlayerAction(action){const p=selectedOnlinePlayer;if(!p)return;if(action==='personal-mute'){togglePersonalMute(p.id);closeOnlinePlayerActions();return;}if(action==='mute'||action==='unmute'){try{const endpoint=action==='mute'?'/api/moderation/mute':'/api/moderation/unmute';const result=await authApi(endpoint,{method:'POST',body:JSON.stringify({userId:p.id})});if(result.system){chatLog.push(result.system);renderChat(true);}showToast(action==='mute'?`${p.nick} foi silenciado por 30 minutos.`:`Silêncio de ${p.nick} removido.`);closeOnlinePlayerActions();refreshLobbyData();return;}catch(e){showToast(e.message);return;}}closeOnlinePlayerActions();if(action==='history')openPublicProfile(p.id,'history').catch(e=>showToast(e.message));else if(action==='stats')openPublicProfile(p.id,'overview','profileStatsCard').catch(e=>showToast(e.message));else if(action==='achievements')openPublicProfile(p.id,'overview','profileAchievementsCard').catch(e=>showToast(e.message));else openPublicProfile(p.id,'overview').catch(e=>showToast(e.message));}
+  async function chooseOnlinePlayerAction(action){const p=selectedOnlinePlayer;if(!p)return;if(action==='report'){reportPlayer(p.id,null,null);return;}if(action==='personal-mute'){togglePersonalMute(p.id);closeOnlinePlayerActions();return;}if(action==='mute'||action==='unmute'){try{const endpoint=action==='mute'?'/api/moderation/mute':'/api/moderation/unmute';const result=await authApi(endpoint,{method:'POST',body:JSON.stringify({userId:p.id})});if(result.system){chatLog.push(result.system);renderChat(true);}showToast(action==='mute'?`${p.nick} foi silenciado por 30 minutos.`:`Silêncio de ${p.nick} removido.`);closeOnlinePlayerActions();refreshLobbyData();return;}catch(e){showToast(e.message);return;}}closeOnlinePlayerActions();if(action==='history')openPublicProfile(p.id,'history').catch(e=>showToast(e.message));else if(action==='stats')openPublicProfile(p.id,'overview','profileStatsCard').catch(e=>showToast(e.message));else if(action==='achievements')openPublicProfile(p.id,'overview','profileAchievementsCard').catch(e=>showToast(e.message));else openPublicProfile(p.id,'overview').catch(e=>showToast(e.message));}
 
   async function loadAdminUsers(){
     const list=$('#adminUsersList');if(!list)return;
@@ -4930,6 +4933,7 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
     $('#roomChatSendBtn').addEventListener('click', sendRoomChat);
     $('#roomChatInput').addEventListener('keydown', e=>{ if(e.key==='Enter') sendRoomChat(); });
 
+    $('#reviewReportsBtn').addEventListener('click',reviewReports);
     $('#chatSendBtn').addEventListener('click', handleSendChat);
     $('#chatInput').addEventListener('keydown', e=>{ if(e.key==='Enter') handleSendChat(); });
 
@@ -5003,6 +5007,16 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
     renderDiceTray();
   };
 
+})();
+</script>
+<div class="modal-backdrop hidden legal-backdrop" id="termsModal" role="dialog" aria-modal="true" aria-label="Termos de uso"><div class="modal legal-dialog"><button type="button" class="modal-x" data-close-legal="termsModal" aria-label="Fechar">×</button><div class="legal-content"><h2>Termos de uso e regras da comunidade — UOR</h2><p>Versão de 1 de outubro de 2026. Responsável: Luiz Augusto — uorgame20277@gmail.com.</p><p>UOR é um jogo de estratégia com batalhas fictícias. Pontos, exércitos e cartas são recursos virtuais sem valor monetário. Use uma conta própria e proteja sua senha. A disponibilidade do serviço depende da conexão e dos servidores.</p><h3>Chat e conduta</h3><p>Ao aceitar estes termos, você concorda em não publicar ameaças, assédio, discriminação, discurso de ódio, conteúdo sexual ou exploração de crianças, violência real explícita, dados pessoais de terceiros, fraude, spam ou conteúdo ilegal. Não use nomes ofensivos nem tente burlar autenticação, regras da partida ou medidas de segurança.</p><p>Chats são públicos para seus participantes. Você é responsável pelo que publica. Use Mutar para mim para bloquear mensagens de outro jogador e Denunciar para avisar a equipe sobre uma mensagem ou jogador. O bloqueio não silencia a pessoa para os demais. Denúncias são avaliadas pela equipe, que pode silenciar, desconectar ou restringir contas conforme a situação. Não faça denúncias falsas.</p><h3>Partidas, conta e contato</h3><p>A desconexão e o abandono seguem as regras mostradas no jogo, incluindo atuação temporária da IA e penalidades de deserção. O responsável pode corrigir falhas e atualizar as regras, respeitando a legislação aplicável. Estes termos não afastam direitos legais dos usuários. Para dúvidas, contestação de moderação ou direitos sobre seus dados: uorgame20277@gmail.com. A política de privacidade e a exclusão de conta estão na tela inicial e em /privacy e /delete-account.</p></div><button class="btn" id="acceptChatTermsBtn" type="button">Li e aceito os termos para usar o chat</button></div></div><div class="modal-backdrop hidden legal-backdrop" id="reportsReviewModal" role="dialog" aria-modal="true" aria-label="Denúncias"><div class="modal legal-dialog"><button type="button" class="modal-x" data-close-legal="reportsReviewModal" aria-label="Fechar">×</button><div class="legal-content"><h2>Denúncias</h2><div id="reportsReviewList"></div></div></div></div>
+<script>
+(()=>{let returnFocus=null,pendingConsent=null;window.uorTermsAcceptedFor=null;
+window.openUorLegal=id=>{if(id==='termsModal')document.getElementById('acceptChatTermsBtn').style.display='none';returnFocus=document.activeElement;document.getElementById(id).classList.remove('hidden');document.querySelector('#'+id+' [data-close-legal]').focus();};
+window.closeUorLegal=id=>{document.getElementById(id).classList.add('hidden');if(id==='termsModal'&&pendingConsent){pendingConsent(false);pendingConsent=null;}if(returnFocus?.isConnected)returnFocus.focus();};
+document.getElementById('privacyOpenBtn').onclick=()=>openUorLegal('privacyModal');document.getElementById('termsOpenBtn').onclick=()=>openUorLegal('termsModal');
+document.querySelectorAll('[data-close-legal]').forEach(b=>b.onclick=()=>closeUorLegal(b.dataset.closeLegal));document.querySelectorAll('.legal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeUorLegal(m.id);}));document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.legal-backdrop:not(.hidden)').forEach(m=>closeUorLegal(m.id));});
+window.ensureChatTerms=async()=>{const user=(await fetch('/api/auth/me').then(r=>r.json())).user;if(!user)return false;if(uorTermsAcceptedFor===user.id)return true;const d=await fetch('/api/terms').then(r=>r.json());if(d.accepted){uorTermsAcceptedFor=user.id;return true;}if(pendingConsent)return false;openUorLegal('termsModal');document.getElementById('acceptChatTermsBtn').style.display='block';return new Promise(resolve=>{pendingConsent=resolve;document.getElementById('acceptChatTermsBtn').onclick=async()=>{const r=await fetch('/api/terms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accept:true,version:'2026-10-01'})});if(!r.ok){alert('Não foi possível salvar o aceite. Tente novamente.');return;}uorTermsAcceptedFor=user.id;const done=pendingConsent;pendingConsent=null;closeUorLegal('termsModal');done(true);};});};
 })();
 </script>
 </body>
