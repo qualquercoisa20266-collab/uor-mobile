@@ -2532,7 +2532,7 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
     if(msg.type==='chat'){handleSendChatText(msg.text||'');return;}
     if(msg.type==='create_room'){confirmCreateFromPayload(msg);return;}
     if(msg.type==='join_room'){tryJoinRoom(msg.roomId,msg.color);return;}
-    if(msg.type==='leave_room'){leaveMyRoom();return;}
+    if(msg.type==='leave_room'){leaveMyRoom().catch(e=>showToast(e.message));return;}
     if(msg.type==='room_relay')sendRoomRelay(msg.payload);
   }
   async function sendRoomRelay(payload){
@@ -2650,7 +2650,19 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
     renderRoomList();
   }
 
-  async function leaveMyRoom(){if(!myRoomId)return;const rid=myRoomId;clearRecoveryCache();closeRoomSocket();try{await fetchJson(`/api/rooms/${encodeURIComponent(rid)}/leave`,{method:'POST',body:'{}'});}catch{}myRoomId=null;roomChatLog=[];updateMyRoomBar();$('#myRoomBar').classList.remove('show');$('#lobbyScreen').classList.remove('in-room');renderRoomChat();refreshLobbyData();}
+  let leaveRoomRequest=null;
+  async function leaveMyRoom(){
+    if(leaveRoomRequest)return leaveRoomRequest;
+    if(!myRoomId)return {ok:true};
+    const rid=myRoomId;
+    leaveRoomRequest=(async()=>{
+      const result=await fetchJson(`/api/rooms/${encodeURIComponent(rid)}/leave`,{method:'POST',body:'{}'});
+      if(!result?.ok)throw new Error(result?.error||'Não foi possível confirmar a saída. Tente novamente.');
+      if(myRoomId===rid){clearRecoveryCache();closeRoomSocket();myRoomId=null;roomChatLog=[];updateMyRoomBar();$('#myRoomBar').classList.remove('show');$('#lobbyScreen').classList.remove('in-room');renderRoomChat();refreshLobbyData();}
+      return result;
+    })();
+    try{return await leaveRoomRequest;}finally{leaveRoomRequest=null;}
+  }
 
   function renderChat(forceScroll){const log=$('#chatLog');if(!log)return;const near=(log.scrollHeight-log.scrollTop-log.clientHeight)<80;log.innerHTML='';chatLog.slice(-200).filter(m=>!isPersonallyMuted(m)).forEach(m=>{const row=document.createElement('div'),d=new Date(m.ts);const time=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');if(m.system){row.className='chat-msg system';row.innerHTML=`<div class="chat-avatar">·</div><div class="chat-body"><div class="chat-text">${escapeHtml(m.text)} <span class="chat-time">${time}</span></div></div>`;}else{row.className='chat-msg';row.innerHTML=`<div class="chat-body"><span class="chat-name-wrap">${rankBadgeHTML(m.rankId||'soldado','20')}<span class="chat-name">${escapeHtml(m.name)}</span>${roleBadgeAfterNameHTML(m.role,'18')}</span> <span class="chat-text">${escapeHtml(m.text)}</span><span class="chat-time">${time}</span></div>`;}addPersonalMuteButton(row,m);log.appendChild(row);});if(near||forceScroll)requestAnimationFrame(()=>{log.scrollTop=log.scrollHeight;});}
   async function handleSendChatText(text){text=String(text||'').trim();if(!text)return;try{if(!await ensureChatTerms())return;const d=await fetchJson('/api/chat',{method:'POST',body:JSON.stringify({text,color:me.color})});chatLog.push(d.entry);if(chatLog.length>200)chatLog=chatLog.slice(-200);renderChat(true);}catch(e){showToast(e.message);}}
@@ -3650,13 +3662,14 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
   async function confirmAbandonMatch(){
     if(!myRoomId)return;
     const btn=$('#abandonConfirmBtn');if(btn){btn.disabled=true;btn.textContent='REGISTRANDO...';}
-    try{await leaveMyRoom();closeAbandonConfirm();stopMatchTimer();gameState=null;matchChatLog=[];roomChatLog=[];$('#gameScreen').classList.add('hidden');$('#lobbyScreen').classList.remove('hidden');showToast('Deserção registrada. A IA continuará a controlar seu exército.');}
+    try{const result=await leaveMyRoom();closeAbandonConfirm();stopMatchTimer();gameState=null;matchChatLog=[];roomChatLog=[];$('#gameScreen').classList.add('hidden');$('#lobbyScreen').classList.remove('hidden');showToast(result.abandoned?'Deserção registrada. A IA continuará a controlar seu exército.':'Você saiu da sala.');}
     catch(e){showToast(e.message||'Não foi possível registrar a deserção.');}
     finally{if(btn){btn.disabled=false;btn.textContent='Abandonar e aceitar penalidade';}}
   }
 
   async function goHome(){
     if(spectatorMode){stopSpectating();return;}
+    try{if(myRoomId)await leaveMyRoom();}catch(e){showToast(e.message||'Não foi possível sair. Tente novamente.');return;}
     stopMatchTimer();
     if(document.fullscreenElement || document.webkitFullscreenElement){ try{ (document.exitFullscreen || document.webkitExitFullscreen).call(document); }catch(e){} }
     if($('#connStatus')) $('#connStatus').style.display='';
@@ -3668,7 +3681,6 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
     $('#idScreen').classList.add('hidden');
     $('#lobbyScreen').classList.remove('hidden');
     document.body.classList.remove('menu-only');
-    try{ if(myRoomId) await leaveMyRoom(); }catch(e){}
     gameState = null;
     matchChatLog = [];
     roomChatLog = [];
@@ -3682,7 +3694,7 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
     if(spectatorMode){stopSpectating();return;}
     if(gameState && !gameState.winner){openAbandonConfirm();return;}
     stopMatchTimer();
-    if(gameState?.winner && myRoomId) leaveMyRoom();
+    if(gameState?.winner && myRoomId) leaveMyRoom().catch(e=>showToast(e.message));
     if(document.fullscreenElement || document.webkitFullscreenElement){ try{ (document.exitFullscreen || document.webkitExitFullscreen).call(document); }catch(e){} }
     if($('#connStatus')) $('#connStatus').style.display='';
     $('#gameScreen').classList.add('hidden');
