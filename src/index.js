@@ -240,7 +240,14 @@ async function apiAuthMe(req,env){const u=await authUser(req,env);return u?json(
 async function apiAuthLogout(req,env){const token=parseCookie(req,COOKIE);if(token){const th=await sha256(token);await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(th).run();}return json({ok:true},200,{'set-cookie':clearCookie(COOKIE)});}
 
 async function getRoomDO(env,id){return env.UOR_ROOM.get(env.UOR_ROOM.idFromName(id));}
-async function apiRooms(req,env){await ensureRoomsSchema(env);const rows=await env.DB.prepare('SELECT id,name,max_players,host_user_id,players_json,game_active,updated_at,created_at,settings_json FROM rooms ORDER BY updated_at DESC LIMIT 100').all();return json({ok:true,rooms:(rows.results||[]).map(roomPublic)});}
+async function apiRooms(req,env,user){
+ await ensureRoomsSchema(env);
+ const rows=await env.DB.prepare('SELECT id,name,max_players,host_user_id,players_json,game_active,updated_at,created_at,settings_json FROM rooms ORDER BY updated_at DESC LIMIT 100').all();
+ // Always include the player's waiting room, even outside the 100 newest rooms.
+ const own=user?await env.DB.prepare("SELECT id,name,max_players,host_user_id,players_json,game_active,updated_at,created_at,settings_json FROM rooms WHERE game_active=0 AND EXISTS(SELECT 1 FROM json_each(players_json) p WHERE json_extract(p.value,'$.id')=? AND COALESCE(json_extract(p.value,'$.abandoned'),0)=0) ORDER BY updated_at DESC LIMIT 1").bind(user.id).first():null;
+ const list=rows.results||[];if(own&&!list.some(r=>r.id===own.id))list.push(own);
+ return json({ok:true,rooms:list.map(roomPublic)});
+}
 function roomPublic(r){let players=[];try{players=JSON.parse(r.players_json||'[]')}catch{}let settings=DEFAULT_ROOM_SETTINGS;try{settings=normalizeRoomSettings(JSON.parse(r.settings_json||'{}'))}catch{}return {id:r.id,name:r.name,maxPlayers:r.max_players,hostConnId:r.host_user_id,players,settings,gameActive:!!r.game_active,updatedAt:r.updated_at,createdAt:r.created_at};}
 
 async function reconcileRoomClaim(env,uid,rid){
@@ -271,6 +278,27 @@ async function apiJoinRoom(req,env,user,roomId){
  }catch(error){try{await reconcileRoomClaim(env,user.id,roomId);}catch{}throw error;}
 }
 
+async function apiWaitingRoom(req,env,user){
+ await ensureCommunitySchema(env);await ensureRoomsSchema(env);
+ const slot=await env.DB.prepare('SELECT room_id FROM user_room_memberships WHERE user_id=?').bind(user.id).first();
+ const rows=await env.DB.prepare("SELECT id FROM rooms WHERE game_active=0 AND EXISTS(SELECT 1 FROM json_each(players_json) p WHERE json_extract(p.value,'$.id')=? AND COALESCE(json_extract(p.value,'$.abandoned'),0)=0) ORDER BY updated_at DESC").bind(user.id).all();
+ const ids=[...new Set([slot?.room_id,...(rows.results||[]).map(r=>r.id)].filter(Boolean))];
+ for(const id of ids){
+  const d=await getRoomDO(env,id),response=await d.fetch(new Request('https://uor-room/internal/membership',{method:'POST',headers:internalHeaders(env,user.id),body:JSON.stringify({roomId:id})}));
+  if(!response.ok)throw Object.assign(new Error('Não foi possível recuperar sua sala. Tente reconectar.'),{status:503});
+  const data=await response.json(),room=data.room;
+  if(!data.member||!room)continue;
+  if(room.gameActive)return json({ok:true,room:null});
+  if(room.id!==id)throw Object.assign(new Error('Não foi possível confirmar sua sala.'),{status:503});
+  await env.DB.prepare('INSERT OR IGNORE INTO user_room_memberships(user_id,room_id,created_at) VALUES(?,?,?)').bind(user.id,id,now()).run();
+  const claimed=await env.DB.prepare('SELECT room_id FROM user_room_memberships WHERE user_id=?').bind(user.id).first();
+  if(claimed?.room_id!==id)throw Object.assign(new Error('Seu vínculo de sala precisa ser confirmado. Tente novamente.'),{status:409});
+  await env.DB.prepare('INSERT OR IGNORE INTO rooms(id,name,max_players,host_user_id,players_json,game_active,updated_at,created_at,settings_json) VALUES(?,?,?,?,?,?,?,?,?)').bind(id,room.name,room.maxPlayers,room.hostConnId,JSON.stringify(room.players||[]),0,now(),now(),JSON.stringify(room.settings||{})).run();
+  await syncRoomRow(env,id,room);
+  return json({ok:true,room});
+ }
+ return json({ok:true,room:null});
+}
 async function apiActiveMatch(req,env,user){
   await ensureRoomsSchema(env);
   const rows=await env.DB.prepare("SELECT id,name,max_players,host_user_id,players_json,game_active,updated_at,created_at,settings_json FROM rooms WHERE game_active=1 AND EXISTS (SELECT 1 FROM json_each(players_json) p WHERE json_extract(p.value,'$.id')=? AND COALESCE(json_extract(p.value,'$.abandoned'),0)=0 AND COALESCE(json_extract(p.value,'$.eliminated'),0)=0) ORDER BY updated_at DESC").bind(user.id).all();
@@ -955,15 +983,11 @@ export class UORRoom {
  }
  async onCloseUnlocked(uid,ws){
   if(this.sockets.get(uid)!==ws)return;
-  this.sockets.delete(uid);if(this.room&&!this.game)await releaseRoomClaim(this.env,uid,this.room.id);this.personalMutes.delete(uid);this.userBlocks.delete(uid);this.chatLastSent.delete(uid);
+  this.sockets.delete(uid);this.personalMutes.delete(uid);this.userBlocks.delete(uid);this.chatLastSent.delete(uid);
   if(this.spectators.has(uid)){this.spectators.delete(uid);return;}
   if(!this.room)return;
-  if(!this.game){
-   this.room.players=this.room.players.filter(p=>p.id!==uid);
-   if(!this.room.players.length){const rid=this.room.id;await this.beginRoomCleanup(rid);return;}
-   if(this.room.hostConnId===uid)this.room.hostConnId=this.room.players[0].id;
-   await this.persist();await syncRoomRow(this.env,this.room.id,await this.roomForPublic());this.broadcast({type:'room_state',room:await this.roomForPublic()});return;
-  }
+  if(!this.game){await this.scheduleNextAlarm();return;}
+
   const p=this.game.players.find(x=>x.id===uid);if(!p||p.eliminated||p.abandoned)return;
   const kickActiveNow=p.kickActive&&Number(p.kickUntil||0)>now();
   if(!kickActiveNow){
@@ -976,7 +1000,7 @@ export class UORRoom {
  }
  async scheduleNextAlarm(){
   if(await this.state.storage.get('pendingRoomCleanup')){await this.state.storage.setAlarm(now()+5000);return;}
-  if(this.room&&!this.game){if(!Number(this.room.waitingLastActivityAt)){this.room.waitingLastActivityAt=now();await this.persist();}await this.state.storage.setAlarm(Math.max(now()+250,this.room.waitingLastActivityAt+1800000));return;}
+  if(this.room&&!this.game){await this.state.storage.deleteAlarm();return;}
   const times=[],ts=now(),hasConnectedHuman=!!this.game?.players?.some(p=>!p.eliminated&&!p.abandoned&&!p.aiControlled&&this.sockets.has(p.id));
   if(this.game?.winner||this.game?.annulled){
    if(!this.game.finishedAt)this.game.finishedAt=ts;
@@ -1073,7 +1097,7 @@ export class UORRoom {
   if(candidate.winner&&!candidate.resultRecorded)await recordResults(this.env,candidate);
   this.game=candidate;await this.persist();this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.game}});return true;
  }
- async alarmUnlocked(){if(await this.state.storage.get('pendingRoomCleanup')){await this.cleanupClosedRoom();return;}if(this.room&&!this.game){if(Number(this.room.waitingLastActivityAt||0)+1800000<=now()){const rid=this.room.id;for(const ws of this.sockets.values())try{ws.close(4000,'idle_room')}catch{}this.sockets.clear();await this.beginRoomCleanup(rid);return;}await this.scheduleNextAlarm();return;}
+ async alarmUnlocked(){if(await this.state.storage.get('pendingRoomCleanup')){await this.cleanupClosedRoom();return;}if(this.room&&!this.game){await this.state.storage.deleteAlarm();return;}
   const lobbyChatCleanup=await this.state.storage.get('lobbyChatCleanup');
   if(lobbyChatCleanup){
    const due=Number(await this.state.storage.get('lobbyChatNextCleanupAt')||0);
@@ -1135,7 +1159,7 @@ export class UORRoom {
 }
 
 async function route(req,env){try{return await routeInner(req,env);}catch(e){console.error('UOR route error',e);if(e.status)return json({ok:false,error:e.message},e.status);if(new URL(req.url).pathname==='/api/account/delete')return json({ok:false,code:'DELETE_PENDING',error:'Não foi possível concluir a exclusão. Se a senha foi confirmada, a solicitação permanece registrada. Repita a operação ou tente novamente mais tarde.'},503);return json({ok:false,error:e.status?e.message:'Erro interno do servidor.'},e.status||500);}}
-async function routeInner(req,env){const url=new URL(req.url),p=url.pathname;if(req.method==='POST'&&req.headers.get('Origin')&&req.headers.get('Origin')!==url.origin)return json({ok:false,error:'Origem inválida.'},403);if(p==='/api/account/delete'&&req.method==='POST')return apiDeleteAccount(req,env);if(p==='/api/admin/bootstrap-role'&&req.method==='POST')return apiAdminBootstrapRole(req,env);if(p==='/api/auth/me')return apiAuthMe(req,env);if(p==='/api/auth/register'&&req.method==='POST')return apiAuthRegister(req,env);if(p==='/api/auth/login'&&req.method==='POST')return apiAuthLogin(req,env);if(p==='/api/auth/logout'&&req.method==='POST')return apiAuthLogout(req,env);const user=await authUser(req,env);if(!user)return json({ok:false,error:'Faça login para continuar.'},401);if(user.deleting)return json({ok:false,error:'Exclusão pendente. Repita a solicitação em /delete-account.'},403); if(p==='/api/terms')return apiTerms(req,env,user);if(p==='/api/reports'||p==='/api/moderation/reports')return apiReports(req,env,user);if(p==='/api/profile')return apiProfile(req,env,user);if(p==='/api/public-profile')return apiPublicProfile(req,env,user.id);if(p==='/api/ranking')return apiRanking(req,env);if(p==='/api/history')return apiHistory(req,env,user);if(p==='/api/public-history')return apiPublicHistory(req,env,user.id);if(p==='/api/chat/mutes')return apiPersonalMutes(req,env,user);if(p==='/api/chat')return apiChat(req,env,user);if(p==='/api/moderation/mute'&&req.method==='POST')return apiModerationMute(req,env,user);if(p==='/api/moderation/unmute'&&req.method==='POST')return apiModerationUnmute(req,env,user);if(p==='/api/moderation/kick'&&req.method==='POST')return apiModerationKick(req,env,user);if(p==='/api/moderation/status'&&req.method==='GET')return apiModerationStatus(req,env,user);if(p==='/api/moderation/active'&&req.method==='GET')return apiModerationActive(req,env,user);if(p==='/api/admin/users'&&req.method==='GET')return apiAdminUsers(req,env,user);if(p==='/api/admin/role'&&req.method==='POST')return apiAdminSetRole(req,env,user);if(p==='/api/admin/remove-suspension'&&req.method==='POST')return apiAdminRemoveSuspension(req,env,user);if(p==='/api/rooms'&&req.method==='GET')return apiRooms(req,env);if(p==='/api/rooms'&&req.method==='POST')return apiCreateRoom(req,env,user);if(p==='/api/active-match'&&req.method==='GET')return apiActiveMatch(req,env,user);let m=p.match(/^\/api\/rooms\/([^/]+)\/(join|leave|reconnect)$/);if(m&&req.method==='POST'){if(m[2]==='join')return apiJoinRoom(req,env,user,m[1]);if(m[2]==='leave')return apiLeaveRoom(req,env,user,m[1]);return apiReconnectRoom(req,env,user,m[1]);}return json({ok:false,error:'Endpoint não encontrado.'},404);}
+async function routeInner(req,env){const url=new URL(req.url),p=url.pathname;if(req.method==='POST'&&req.headers.get('Origin')&&req.headers.get('Origin')!==url.origin)return json({ok:false,error:'Origem inválida.'},403);if(p==='/api/account/delete'&&req.method==='POST')return apiDeleteAccount(req,env);if(p==='/api/admin/bootstrap-role'&&req.method==='POST')return apiAdminBootstrapRole(req,env);if(p==='/api/auth/me')return apiAuthMe(req,env);if(p==='/api/auth/register'&&req.method==='POST')return apiAuthRegister(req,env);if(p==='/api/auth/login'&&req.method==='POST')return apiAuthLogin(req,env);if(p==='/api/auth/logout'&&req.method==='POST')return apiAuthLogout(req,env);const user=await authUser(req,env);if(!user)return json({ok:false,error:'Faça login para continuar.'},401);if(user.deleting)return json({ok:false,error:'Exclusão pendente. Repita a solicitação em /delete-account.'},403); if(p==='/api/terms')return apiTerms(req,env,user);if(p==='/api/reports'||p==='/api/moderation/reports')return apiReports(req,env,user);if(p==='/api/profile')return apiProfile(req,env,user);if(p==='/api/public-profile')return apiPublicProfile(req,env,user.id);if(p==='/api/ranking')return apiRanking(req,env);if(p==='/api/history')return apiHistory(req,env,user);if(p==='/api/public-history')return apiPublicHistory(req,env,user.id);if(p==='/api/chat/mutes')return apiPersonalMutes(req,env,user);if(p==='/api/chat')return apiChat(req,env,user);if(p==='/api/moderation/mute'&&req.method==='POST')return apiModerationMute(req,env,user);if(p==='/api/moderation/unmute'&&req.method==='POST')return apiModerationUnmute(req,env,user);if(p==='/api/moderation/kick'&&req.method==='POST')return apiModerationKick(req,env,user);if(p==='/api/moderation/status'&&req.method==='GET')return apiModerationStatus(req,env,user);if(p==='/api/moderation/active'&&req.method==='GET')return apiModerationActive(req,env,user);if(p==='/api/admin/users'&&req.method==='GET')return apiAdminUsers(req,env,user);if(p==='/api/admin/role'&&req.method==='POST')return apiAdminSetRole(req,env,user);if(p==='/api/admin/remove-suspension'&&req.method==='POST')return apiAdminRemoveSuspension(req,env,user);if(p==='/api/rooms'&&req.method==='GET')return apiRooms(req,env,user);if(p==='/api/rooms'&&req.method==='POST')return apiCreateRoom(req,env,user);if(p==='/api/waiting-room'&&req.method==='GET')return apiWaitingRoom(req,env,user);if(p==='/api/active-match'&&req.method==='GET')return apiActiveMatch(req,env,user);let m=p.match(/^\/api\/rooms\/([^/]+)\/(join|leave|reconnect)$/);if(m&&req.method==='POST'){if(m[2]==='join')return apiJoinRoom(req,env,user,m[1]);if(m[2]==='leave')return apiLeaveRoom(req,env,user,m[1]);return apiReconnectRoom(req,env,user,m[1]);}return json({ok:false,error:'Endpoint não encontrado.'},404);}
 
 export default {async fetch(req,env,ctx){
  const url=new URL(req.url),legal=publicLegalPage(url.pathname,env);if(legal)return legal;
