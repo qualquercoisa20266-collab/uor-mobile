@@ -1470,10 +1470,10 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
 #pv-stage .pv-leaders .pv-panel-head{height:40px!important;padding:0 12px!important;font-size:15px!important}
 #pv-stage .pv-leaders .pv-panel-head button{font-size:11px!important}
 #pv-stage .pv-leader{height:28px!important;margin:0 12px!important;gap:8px!important}
-#pv-stage .pv-leader strong{font-size:13px!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+#pv-stage .pv-leader strong{font-size:16px!important;line-height:1.05!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
 #pv-stage .pv-leader small{font-size:11px!important;line-height:1!important;white-space:nowrap!important}
 #pv-stage .pv-place{width:21px!important;height:21px!important;flex:0 0 21px!important;font-size:12px!important;border-width:1px!important}
-#pv-viewport.pv-small #pv-stage .pv-leader strong{font-size:15px!important}
+#pv-viewport.pv-small #pv-stage .pv-leader strong{font-size:18px!important;line-height:1.05!important}
 #pv-viewport.pv-small #pv-stage .pv-leader small{font-size:13px!important}
 #pv-viewport.pv-small #pv-stage .pv-leaders .pv-panel-head{font-size:17px!important}
 #pv-viewport.pv-small #pv-stage .pv-leaders .pv-panel-head button{font-size:12px!important}
@@ -1503,14 +1503,12 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
 #pv-stage .pv-leaders{top:724px!important;height:180px!important}
 #pv-stage .pv-social{height:564px!important}
 
-/* Restaura detalhes dos três mapas sem alterar os cliques/seleção. */
-#pv-stage .pv-operation .pv-mode>*{opacity:1!important}
-#pv-stage .pv-operation .pv-mode::before{background:linear-gradient(90deg,rgba(4,16,27,.90) 0%,rgba(4,16,27,.68) 38%,rgba(4,16,27,.30) 70%,rgba(3,7,11,.06) 100%)!important}
-#pv-stage .pv-operation .pv-mode[aria-pressed=false]{filter:brightness(1.04) saturate(1.25) contrast(1.08)!important}
-#pv-stage .pv-operation .pv-mode[aria-pressed=true]{filter:brightness(1.12) saturate(1.30) contrast(1.10)!important}
-#pv-stage .pv-operation .pv-mode strong{color:#f4f6f7!important;text-shadow:0 2px 4px #000,0 0 4px #000!important}
-#pv-stage .pv-operation .pv-mode small{display:block!important;color:#c5d2da!important;text-shadow:0 1px 3px #000!important}
-#pv-viewport.pv-small #pv-stage .pv-operation .pv-mode small{display:block!important;font-size:12px!important;line-height:1.05!important;margin-top:3px!important}
+/* Arte original dos modos: contém ícones e legendas; evitar cópia sobreposta. */
+#pv-viewport #pv-stage .pv-operation .pv-mode>*{opacity:0!important}
+#pv-viewport #pv-stage .pv-operation .pv-mode::before{background:none!important}
+#pv-viewport #pv-stage .pv-operation .pv-mode{filter:none!important}
+#pv-viewport #pv-stage .pv-operation .pv-mode[aria-pressed=false]{box-shadow:inset 0 0 0 1px #437393!important}
+#pv-viewport #pv-stage .pv-operation .pv-mode[aria-pressed=true]{box-shadow:0 0 17px #f9d47066!important}
 
 /* O botão ✥ é a única alça de movimento: evita arrastar ao selecionar/rolar o chat. */
 #pv-chat .pv-chat-head button#pv-chat-move{touch-action:none;cursor:grab;font-family:'Segoe UI Symbol','Segoe UI',Arial,sans-serif!important;font-size:18px!important;user-select:none;-webkit-user-select:none}
