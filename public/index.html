@@ -2290,16 +2290,9 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
   let rooms = {};
   let chatLog = [];
 
-  // Fechamento normal do app/aba: salas em espera são liberadas imediatamente.
-  // Durante uma partida ativa, NÃO removemos o jogador: o Durable Object preserva o estado
-  // e o login + clique na sala permite reconectar ao mesmo jogo.
+  // Waiting rooms are left only through the explicit exit action.
   let pageLeaveSent = false;
-  window.addEventListener('pagehide', ()=>{
-    closeLobbyPresence();
-    if(pageLeaveSent || !myRoomId || gameState || spectatorMode) return;
-    pageLeaveSent = true;
-    try{ fetch(`/api/rooms/${encodeURIComponent(myRoomId)}/leave`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',keepalive:true}); }catch(e){}
-  });
+  window.addEventListener('pagehide', ()=>{closeLobbyPresence();});
 
   let myRoomId = null;
   let reconnectLoopTimer = null;
@@ -2350,10 +2343,30 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
     const res=await fetch(path,opts); let data=null; try{data=await res.json()}catch{data={ok:false,error:'Resposta inválida do servidor.'}};
     if(!res.ok||data.ok===false)throw new Error(data.error||'Falha no servidor.'); return data;
   }
+  let waitingRoomRestorePromise=null;
+  async function restoreWaitingRoom(){
+    if(waitingRoomRestorePromise)return waitingRoomRestorePromise;
+    if(!authUser||spectatorMode||gameState)return false;
+    const accountId=authUser.id;
+    waitingRoomRestorePromise=(async()=>{
+      const data=await fetchJson('/api/waiting-room',{method:'GET'}),room=data.room;
+      if(authUser?.id!==accountId||spectatorMode||gameState||!room||room.gameActive)return false;
+      if(!room.players?.some(p=>p.id===accountId&&!p.abandoned))return false;
+      myRoomId=room.id;rooms[room.id]=room;pageLeaveSent=false;
+      const mine=room.players.find(p=>p.id===accountId);if(mine?.color)me.color=mine.color;
+      updateMyRoomBar();connectRoomSocket(room.id);return true;
+    })();
+    try{return await waitingRoomRestorePromise;}finally{waitingRoomRestorePromise=null;}
+  }
   async function refreshLobbyData(){
     try{
+      const roomAtRequest=myRoomId;
       const [r,c]=await Promise.all([fetchJson('/api/rooms'),fetchJson('/api/chat')]);
       rooms={};(r.rooms||[]).forEach(x=>rooms[x.id]=x); chatLog=c.chat||[];
+      if(!roomAtRequest&&!myRoomId&&!spectatorMode&&authUser){
+        const waiting=(r.rooms||[]).find(x=>!x.gameActive&&x.players?.some(p=>p.id===me.id&&!p.abandoned));
+        if(waiting){myRoomId=waiting.id;const mine=waiting.players.find(p=>p.id===me.id);if(mine?.color)me.color=mine.color;connectRoomSocket(waiting.id);}
+      }
       renderChat();renderRoomList();updateMyRoomBar();renderOnlinePlayers();markOnline();
     }catch(e){markOfflineWithGrace();}
   }
@@ -2380,7 +2393,7 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
     if(reconnectLoopTimer)return; reconnectAttempts=0;
     reconnectLoopTimer=setTimeout(()=>{reconnectLoopTimer=null;if(myRoomId===roomId)connectRoomSocket(roomId,{spectator:false});else if(spectatorRoomId===roomId)connectRoomSocket(roomId,{spectator:true});},1500);
   }
-  async function manualReconnect(){const btn=$('#reconnectBtn');if(btn){btn.classList.add('spinning');setTimeout(()=>btn.classList.remove('spinning'),700);}if(myRoomId)connectRoomSocket(myRoomId,{spectator:false});else if(spectatorRoomId)connectRoomSocket(spectatorRoomId,{spectator:true});else refreshLobbyData();}
+  async function manualReconnect(){const btn=$('#reconnectBtn');if(btn){btn.classList.add('spinning');setTimeout(()=>btn.classList.remove('spinning'),700);}if(myRoomId)connectRoomSocket(myRoomId,{spectator:false});else if(spectatorRoomId)connectRoomSocket(spectatorRoomId,{spectator:true});else{try{if(!await restoreWaitingRoom())await refreshLobbyData();}catch(e){showToast(e.message||'Não foi possível recuperar sua sala.');}}}
 
   // ============================================================
   // CONTA UOR — autenticação real no Worker + D1
@@ -2521,7 +2534,7 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
     ['accountPassword','accountPassword2','accountPasswordIn'].forEach(id=>{ const el=$('#'+id); if(el) el.value=''; });
     showAccountScreen();
   }
-  async function handleEnterName(){ if(!authUser){showAccountScreen();return;} me.id=authUser.id;me.name=authUser.nick;me.color=COLORS[0].id;me.role=normalizeClientRole(authUser.role);updateRoleUI();spectatorMode=false;spectatorRoomId=null;roomConnectionSpectator=false;pendingReconnectCode=null;$('#idScreen').classList.add('hidden');renderLobbyIdentity('soldado',me.role);await refreshLobbyIdentity();const hasMatch=await checkActiveMatchAfterLogin();if(hasMatch){document.body.classList.add('menu-only');$('#lobbyScreen').classList.add('hidden');$('#accountScreen').classList.remove('hidden');return;}document.body.classList.remove('menu-only');$('#accountScreen').classList.add('hidden');$('#lobbyScreen').classList.remove('hidden');connectToNetwork(); }
+  async function handleEnterName(){ if(!authUser){showAccountScreen();return;} me.id=authUser.id;me.name=authUser.nick;me.color=COLORS[0].id;me.role=normalizeClientRole(authUser.role);updateRoleUI();spectatorMode=false;spectatorRoomId=null;roomConnectionSpectator=false;pendingReconnectCode=null;$('#idScreen').classList.add('hidden');renderLobbyIdentity('soldado',me.role);await refreshLobbyIdentity();const hasMatch=await checkActiveMatchAfterLogin();if(hasMatch){document.body.classList.add('menu-only');$('#lobbyScreen').classList.add('hidden');$('#accountScreen').classList.remove('hidden');return;}try{await restoreWaitingRoom();}catch(e){showToast(e.message||'Não foi possível recuperar sua sala. Use reconectar.');}document.body.classList.remove('menu-only');$('#accountScreen').classList.add('hidden');$('#lobbyScreen').classList.remove('hidden');connectToNetwork(); }
   function handleReconnectByCode(){ showToast('A reconexão agora é automática pela sua conta.'); if(myRoomId)connectRoomSocket(myRoomId); }
 
   function formatKickClock(ms){let sec=Math.max(0,Math.ceil(Number(ms||0)/1000));const h=Math.floor(sec/3600);sec%=3600;const m=Math.floor(sec/60);sec%=60;return h>0?`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}
