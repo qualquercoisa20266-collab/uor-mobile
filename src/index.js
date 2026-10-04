@@ -104,8 +104,10 @@ const STARTING_ARMIES = {2:40,3:35,4:30,5:25,6:20};
 const CARD_SYMBOLS = ['espada','castelo','cavalo','aviao'];
 const TRADE_VALUES = [4,6,8,10,12,15];
 const AIR = 'aviao';
-const DEFAULT_ROOM_SETTINGS = { map:'classic', airAttackEnabled:true, cardLimit:'classic', soldiers:'classic' };
-function normalizeRoomSettings(raw){const r=raw&&typeof raw==='object'?raw:{};const map=r.map==='apocalyptic'?'apocalyptic':(r.map==='glacial'?'glacial':'classic');return {map,airAttackEnabled:r.airAttackEnabled===false||r.airAttack==='disabled'?false:true,cardLimit:r.cardLimit==='unlimited'?'unlimited':'classic',soldiers:r.soldiers==='military'?'military':'classic'};}
+const UOR_SOLDIER_SETS={classic:['knight','musketeer','ranger','royal'],apocalyptic:['infantry','raider','heavy'],glacial:['polar','scout','cryo']};
+function normalizeUorSoldier(map,value){const options=UOR_SOLDIER_SETS[map]||UOR_SOLDIER_SETS.classic;return options.includes(value)?value:((value==='classic'||value==='military')?value:options[0]);}
+const DEFAULT_ROOM_SETTINGS = { map:'classic', airAttackEnabled:true, cardLimit:'classic', soldiers:'knight' };
+function normalizeRoomSettings(raw){const r=raw&&typeof raw==='object'?raw:{};const map=r.map==='apocalyptic'?'apocalyptic':(r.map==='glacial'?'glacial':'classic');return {map,airAttackEnabled:r.airAttackEnabled===false||r.airAttack==='disabled'?false:true,cardLimit:r.cardLimit==='unlimited'?'unlimited':'classic',soldiers:normalizeUorSoldier(map,r.soldiers)};}
 
 function now(){return Date.now();}
 function uuid(){return crypto.randomUUID();}
