@@ -1631,12 +1631,11 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
           <div class="account-note">Escolha com cuidado: o nick será sua identidade permanente no UOR.</div>
           <div class="account-field"><label for="accountNick">Nick permanente</label><input id="accountNick" maxlength="18" autocomplete="nickname" placeholder="Ex.: Jogador Aurelio"></div>
           <div class="account-hint">3–18 caracteres • será exibido nas partidas e futuramente no ranking.</div>
-          <div class="account-field"><label for="accountLogin">Login</label><input id="accountLogin" maxlength="24" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Seu login de acesso"></div>
-          <div class="account-hint">4–24 caracteres • letras, números, ponto, hífen e sublinhado.</div>
-          <div class="account-field account-password"><label for="accountPassword">Senha</label><input id="accountPassword" type="password" maxlength="72" autocomplete="new-password" placeholder="Crie uma senha forte"><button class="account-showpass" type="button" data-pass="accountPassword">mostrar</button></div>
-          <div class="account-meter"><i id="accountPasswordMeter"></i></div>
-          <div class="account-hint">Mínimo de 8 caracteres • use maiúscula, minúscula, número e símbolo.</div>
-          <div class="account-field account-password"><label for="accountPassword2">Confirmar senha</label><input id="accountPassword2" type="password" maxlength="72" autocomplete="new-password" placeholder="Repita sua senha"><button class="account-showpass" type="button" data-pass="accountPassword2">mostrar</button></div>
+          <div class="account-field"><label for="accountLogin">Login</label><input id="accountLogin" maxlength="128" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Seu login de acesso"></div>
+          <div class="account-hint">Escolha seu login: de 1 a 128 caracteres, incluindo acentos, espaços e símbolos.</div>
+          <div class="account-field account-password"><label for="accountPassword">Senha</label><input id="accountPassword" type="password" maxlength="128" autocomplete="new-password" placeholder="Escolha sua senha"><button class="account-showpass" type="button" data-pass="accountPassword">mostrar</button></div>
+          <div class="account-hint">De 1 a 128 caracteres • sem combinação obrigatória de letras, números ou símbolos.</div>
+          <div class="account-field account-password"><label for="accountPassword2">Confirmar senha</label><input id="accountPassword2" type="password" maxlength="128" autocomplete="new-password" placeholder="Repita sua senha"><button class="account-showpass" type="button" data-pass="accountPassword2">mostrar</button></div>
           <label style="font:12px/1.5 system-ui"><input type="checkbox" id="accountTermsAccept"> Li e aceito os <button type="button" id="termsOpenBtn">Termos de uso</button>.</label><div class="account-error" id="accountCreateError"></div>
           <button class="btn account-submit" id="accountCreateBtn" type="button">Criar minha conta de Jogador</button>
           <div class="account-legal">Sua senha nunca é salva em texto aberto. A autenticação será feita pelo servidor.</div>
@@ -1645,8 +1644,8 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
         <div id="accountLoginView" class="hidden">
           <div class="account-heading">Retornar ao comando</div>
           <div class="account-note">Entre com seu login e senha para continuar como seu Jogador.</div>
-          <div class="account-field"><label for="accountLoginIn">Login</label><input id="accountLoginIn" maxlength="24" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Seu login"></div>
-          <div class="account-field account-password"><label for="accountPasswordIn">Senha</label><input id="accountPasswordIn" type="password" maxlength="72" autocomplete="current-password" placeholder="Sua senha"><button class="account-showpass" type="button" data-pass="accountPasswordIn">mostrar</button></div>
+          <div class="account-field"><label for="accountLoginIn">Login</label><input id="accountLoginIn" maxlength="128" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Seu login"></div>
+          <div class="account-field account-password"><label for="accountPasswordIn">Senha</label><input id="accountPasswordIn" type="password" maxlength="128" autocomplete="current-password" placeholder="Sua senha"><button class="account-showpass" type="button" data-pass="accountPasswordIn">mostrar</button></div>
           <div class="account-error" id="accountLoginError"></div>
           <button class="btn account-submit" id="accountLoginBtn" type="button">Entrar no UOR</button>
           <div class="account-foot"><span>Nick permanente</span><span>Conta UOR</span></div>
@@ -2450,11 +2449,6 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
     $('#accountTabCreate')?.classList.remove('active');
     $('#accountTabLogin')?.classList.remove('active');
   }
-  function updatePasswordMeter(){
-    const input=$('#accountPassword'), meter=$('#accountPasswordMeter');
-    if(!input || !meter) return;
-    const v=input.value||''; let n=0; if(v.length>=8)n++; if(/[A-Z]/.test(v))n++; if(/[a-z]/.test(v))n++; if(/[0-9]/.test(v))n++; if(/[^A-Za-z0-9]/.test(v))n++; meter.style.width=(n*20)+'%';
-  }
   function setAuthUser(user){
     authUser=user||null;
     if(authUser){
@@ -2473,8 +2467,8 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
     const password=String($('#accountPassword')?.value||'');
     const password2=String($('#accountPassword2')?.value||'');
     if(nick.length<3 || nick.length>18){ if(error) error.textContent='O nick deve ter de 3 a 18 caracteres.'; return; }
-    if(login.length<4 || login.length>24 || !/^[A-Za-z0-9._-]+$/.test(login)){ if(error) error.textContent='Login inválido. Use 4–24 caracteres: letras, números, ponto, hífen ou sublinhado.'; return; }
-    if(password.length<8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)){ if(error) error.textContent='Senha fraca. Use pelo menos 8 caracteres, com maiúscula, minúscula, número e símbolo.'; return; }
+    if(!login || login.toLowerCase().length>128){ if(error) error.textContent='Informe um login de 1 a 128 caracteres.'; return; }
+    if(!password || password.length>128){ if(error) error.textContent='Informe uma senha de 1 a 128 caracteres.'; return; }
     if(password!==password2){ if(error) error.textContent='As senhas não coincidem.'; return; }
     const btn=$('#accountCreateBtn');
     if(btn){btn.disabled=true;btn.textContent='Criando conta...';}
@@ -5874,7 +5868,6 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
     $('#accountTabLogin').addEventListener('click', ()=>switchAccountTab('login'));
     $('#accountCreateBtn').addEventListener('click', ()=>{ ensureAudioCtx(); startAmbientMusic(); createAccount(); });
     $('#accountLoginBtn').addEventListener('click', ()=>{ ensureAudioCtx(); startAmbientMusic(); loginAccount(); });
-    $('#accountPassword').addEventListener('input', updatePasswordMeter);
     ['accountNick','accountLogin','accountPassword','accountPassword2'].forEach(id=>$('#'+id)?.addEventListener('keydown',e=>{if(e.key==='Enter')createAccount();}));
     ['accountLoginIn','accountPasswordIn'].forEach(id=>$('#'+id)?.addEventListener('keydown',e=>{if(e.key==='Enter')loginAccount();}));
     document.querySelectorAll('.account-showpass').forEach(btn=>btn.addEventListener('click',()=>{const input=$('#'+btn.dataset.pass);if(!input)return;input.type=input.type==='password'?'text':'password';btn.textContent=input.type==='password'?'mostrar':'ocultar';}));
