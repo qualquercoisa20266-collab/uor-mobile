@@ -106,8 +106,14 @@ const TRADE_VALUES = [4,6,8,10,12,15];
 const AIR = 'aviao';
 const UOR_SOLDIER_SETS={classic:['knight','musketeer','ranger','royal'],apocalyptic:['infantry','raider','heavy'],glacial:['polar','scout','cryo']};
 function normalizeUorSoldier(map,value){const options=UOR_SOLDIER_SETS[map]||UOR_SOLDIER_SETS.classic;return options.includes(value)?value:((value==='classic'||value==='military')?value:options[0]);}
-const DEFAULT_ROOM_SETTINGS = { map:'classic', airAttackEnabled:true, cardLimit:'classic', soldiers:'knight' };
-function normalizeRoomSettings(raw){const r=raw&&typeof raw==='object'?raw:{};const map=r.map==='apocalyptic'?'apocalyptic':(r.map==='glacial'?'glacial':'classic');return {map,airAttackEnabled:r.airAttackEnabled===false||r.airAttack==='disabled'?false:true,cardLimit:r.cardLimit==='unlimited'?'unlimited':'classic',soldiers:normalizeUorSoldier(map,r.soldiers)};}
+const DEFAULT_ROOM_SETTINGS = { mode:'ranked', botCount:0, map:'classic', airAttackEnabled:true, cardLimit:'classic', soldiers:'knight' };
+function normalizeRoomSettings(raw){const r=raw&&typeof raw==='object'?raw:{};const map=r.map==='apocalyptic'?'apocalyptic':(r.map==='glacial'?'glacial':'classic');const mode=r.mode==='training'?'training':'ranked';const count=Number(r.botCount);return {mode,botCount:mode==='training'?(Number.isSafeInteger(count)?Math.max(1,Math.min(5,count)):1):0,map,airAttackEnabled:r.airAttackEnabled===false||r.airAttack==='disabled'?false:true,cardLimit:r.cardLimit==='unlimited'?'unlimited':'classic',soldiers:normalizeUorSoldier(map,r.soldiers)};}
+
+function isTrainingGame(state){return state?.matchMode==='training'||(!state?.matchMode&&state?.settings?.mode==='training');}
+function createRoomBots(room){
+ const rules=normalizeRoomSettings(room.settings);if(rules.mode!=='training')return [];
+ const used=new Set(room.players.map(p=>p.color));return COLORS.filter(c=>!used.has(c)).slice(0,rules.botCount).map((color,i)=>({id:`bot:${room.id}:${i+1}`,connId:`bot:${room.id}:${i+1}`,name:`BOT ${i+1}`,color,rankId:'soldado',role:'PLAYER',isBot:true,aiControlled:true,connectionStatus:'bot',ready:true,eliminated:false}));
+}
 
 function now(){return Date.now();}
 function uuid(){return crypto.randomUUID();}
@@ -268,7 +274,7 @@ async function claimRoom(env,uid,rid){
 }
 async function releaseRoomClaim(env,uid,rid){await env.DB.prepare('DELETE FROM user_room_memberships WHERE user_id=? AND room_id=?').bind(uid,rid).run();}
 
-async function apiCreateRoom(req,env,user){await ensureRoomsSchema(env);const suspension=await getActiveSuspension(env,user.id);if(suspension)return json({ok:false,error:`Você está suspenso por deserção até ${new Date(suspension.expiresAt).toLocaleString('pt-BR')}.`},403);const b=await body(req),color=COLORS.includes(b.color)?b.color:COLORS[0],settings=normalizeRoomSettings(b.settings),name=`Sala do Jogador ${user.nick} — ${COLOR_LABELS[color]||color}`,max=6;const st=await env.DB.prepare('SELECT points FROM user_stats WHERE user_id=?').bind(user.id).first();const rankId=rankFor(Number(st?.points||0)).id;const id=uuid();if(!await claimRoom(env,user.id,id))return json({ok:false,error:'Você já está em uma sala.'},409);try{const ts=now(),player={id:user.id,connId:user.id,name:user.nick,color,rankId,role:normalizeRole(user.role),ready:true,eliminated:false};await env.DB.prepare('INSERT INTO rooms(id,name,max_players,host_user_id,players_json,game_active,updated_at,created_at,settings_json) VALUES(?,?,?,?,?,?,?,?,?)').bind(id,name,max,user.id,JSON.stringify([player]),0,ts,ts,JSON.stringify(settings)).run();const d=await getRoomDO(env,id);const initialized=await d.fetch(new Request('https://uor-room/internal/init',{method:'POST',headers:internalHeaders(env,user.id),body:JSON.stringify({id,name,maxPlayers:max,hostConnId:user.id,players:[player],settings})}));if(!initialized.ok)throw new Error('Falha ao iniciar a sala.');return json({ok:true,room:{id,name,maxPlayers:max,hostConnId:user.id,players:[player],settings,gameActive:false,updatedAt:ts}});}catch(error){await releaseRoomClaim(env,user.id,id);await env.DB.prepare('DELETE FROM rooms WHERE id=?').bind(id).run();throw error;}}
+async function apiCreateRoom(req,env,user){await ensureRoomsSchema(env);const suspension=await getActiveSuspension(env,user.id);if(suspension)return json({ok:false,error:`Você está suspenso por deserção até ${new Date(suspension.expiresAt).toLocaleString('pt-BR')}.`},403);const b=await body(req),color=COLORS.includes(b.color)?b.color:COLORS[0],settings=normalizeRoomSettings(b.settings),name=`Sala do Jogador ${user.nick} — ${COLOR_LABELS[color]||color}`,max=6;const st=await env.DB.prepare('SELECT points FROM user_stats WHERE user_id=?').bind(user.id).first();const rankId=rankFor(Number(st?.points||0)).id;const id=uuid();if(!await claimRoom(env,user.id,id))return json({ok:false,error:'Você já está em uma sala.'},409);try{const ts=now(),player={id:user.id,connId:user.id,name:user.nick,color,rankId,role:normalizeRole(user.role),ready:true,eliminated:false};await env.DB.prepare('INSERT INTO rooms(id,name,max_players,host_user_id,players_json,game_active,updated_at,created_at,settings_json) VALUES(?,?,?,?,?,?,?,?,?)').bind(id,name,max,user.id,JSON.stringify([player]),0,ts,ts,JSON.stringify(settings)).run();const d=await getRoomDO(env,id);const initialized=await d.fetch(new Request('https://uor-room/internal/init',{method:'POST',headers:internalHeaders(env,user.id),body:JSON.stringify({id,name,maxPlayers:max,hostConnId:user.id,players:[player],settings})}));if(!initialized.ok)throw new Error('Falha ao iniciar a sala.');const data=await initialized.json();return json({ok:true,room:data.room});}catch(error){await releaseRoomClaim(env,user.id,id);await env.DB.prepare('DELETE FROM rooms WHERE id=?').bind(id).run();throw error;}}
 async function apiJoinRoom(req,env,user,roomId){
  await ensureRoomsSchema(env);const suspension=await getActiveSuspension(env,user.id);if(suspension)return json({ok:false,error:`Você está suspenso por deserção até ${new Date(suspension.expiresAt).toLocaleString('pt-BR')}.`},403);
  const b=await body(req),color=COLORS.includes(b.color)?b.color:COLORS[0],st=await env.DB.prepare('SELECT points FROM user_stats WHERE user_id=?').bind(user.id).first(),rankId=rankFor(Number(st?.points||0)).id,d=await getRoomDO(env,roomId);
@@ -532,7 +538,7 @@ function stateSafeObjectivePool(players){return players.length>3?OBJECTIVE_POOL.
 function makeObjective(state,p,source){let pool=Array.isArray(source)&&source.length?source:OBJECTIVE_POOL.slice();if(!pool.length)pool=OBJECTIVE_POOL.slice();let o=structuredClone(pool[Math.floor(Math.random()*pool.length)]);if(o.type==='eliminate'){const targets=state.players.filter(x=>x.id!==p.id&&x.color);const target=targets[Math.floor(Math.random()*Math.max(1,targets.length))];o.targetColor=target?.color||'';o.text=o.text.replace('{COLOR}',target?.name||'Jogador');}return o;}
 function setLastAction(state,p,kind,data={}){if(!state)return null;const playerId=p?.id||p?.connId||null;state.lastAction={kind,byConnId:playerId,playerName:p?.name||'Jogador',ts:now(),...data};return state.lastAction;}
 function setTurnStartAction(state,p){if(p)setLastAction(state,p,'turnStart',{phase:state.phase});}
-function initGame(room){const settings=normalizeRoomSettings(room?.settings);const players=room.players.map(p=>({...p,id:p.id,connId:p.id,eliminated:false,conqueredThisTurn:false}));const ids=shuffle(TERRITORIES.map(t=>t.id));const terr={};ids.forEach((tid,i)=>terr[tid]={owner:players[i%players.length].id,armies:1});const setup={};const start=STARTING_ARMIES[players.length]||20;for(const p of players){const owned=Object.values(terr).filter(x=>x.owner===p.id).length;setup[p.id]=Math.max(0,start-owned);}const objectivePool=stateSafeObjectivePool(players);const objectiveDeck=shuffle(objectivePool.slice());const objectives={};players.forEach((p,i)=>objectives[p.id]=makeObjective({players},p,[objectiveDeck[i%objectiveDeck.length]]));const state={version:GAME_VERSION,roomId:room.id,roomName:room.name,maxPlayers:room.maxPlayers,hostConnId:room.hostConnId,settings,players,territories:terr,turnIndex:0,turnNumber:1,phase:'setup',setupRemaining:setup,reinforcementsRemaining:0,reinforcementStage:'free',continentBonusRemaining:{},pendingFreeReinforcements:0,objectives,deck:[],discardPile:[],hands:{},airAttackCards:{},airAttackPending:null,cardTradeCount:0,cardTradeStats:Object.fromEntries(players.map(p=>[p.id,{trades:0,lastReward:0,lastAt:0,airStored:0}])),usedFortifyTerritories:[],fortifyLockedTerritories:[],pendingConquestTransfer:null,lastAttackAt:{},lastCombat:null,lastAction:{kind:'turnStart',byConnId:players[0]?.id||null,playerName:players[0]?.name||'Jogador',phase:'setup',ts:now()},playerStats:Object.fromEntries(players.map(p=>[p.id,{conquests:0,armiesDestroyed:0}])),log:['Distribuição inicial iniciada.'],winner:null,annulled:false,finishedAt:null,resultRecorded:false,resultRecordError:null,startedAt:now(),updatedAt:now()};for(const p of players)state.hands[p.id]=[];state.deck=shuffle(TERRITORIES.map(t=>({id:`card_${t.id}`,territoryId:t.id,name:t.name,symbol:null})));return state;}
+function initGame(room){const settings=normalizeRoomSettings(room?.settings);if(settings.mode==='ranked'&&room.players.some(p=>p.isBot))throw new Error('Ranqueado não permite bots.');const players=room.players.map(p=>({...p,id:p.id,connId:p.id,eliminated:false,conqueredThisTurn:false}));const ids=shuffle(TERRITORIES.map(t=>t.id));const terr={};ids.forEach((tid,i)=>terr[tid]={owner:players[i%players.length].id,armies:1});const setup={};const start=STARTING_ARMIES[players.length]||20;for(const p of players){const owned=Object.values(terr).filter(x=>x.owner===p.id).length;setup[p.id]=Math.max(0,start-owned);}const objectivePool=stateSafeObjectivePool(players);const objectiveDeck=shuffle(objectivePool.slice());const objectives={};players.forEach((p,i)=>objectives[p.id]=makeObjective({players},p,[objectiveDeck[i%objectiveDeck.length]]));const state={version:GAME_VERSION,matchMode:settings.mode,roomId:room.id,roomName:room.name,maxPlayers:room.maxPlayers,hostConnId:room.hostConnId,settings,players,territories:terr,turnIndex:0,turnNumber:1,phase:'setup',setupRemaining:setup,reinforcementsRemaining:0,reinforcementStage:'free',continentBonusRemaining:{},pendingFreeReinforcements:0,objectives,deck:[],discardPile:[],hands:{},airAttackCards:{},airAttackPending:null,cardTradeCount:0,cardTradeStats:Object.fromEntries(players.map(p=>[p.id,{trades:0,lastReward:0,lastAt:0,airStored:0}])),usedFortifyTerritories:[],fortifyLockedTerritories:[],pendingConquestTransfer:null,lastAttackAt:{},lastCombat:null,lastAction:{kind:'turnStart',byConnId:players[0]?.id||null,playerName:players[0]?.name||'Jogador',phase:'setup',ts:now()},playerStats:Object.fromEntries(players.map(p=>[p.id,{conquests:0,armiesDestroyed:0}])),log:['Distribuição inicial iniciada.'],winner:null,annulled:false,finishedAt:null,resultRecorded:false,resultRecordError:null,startedAt:now(),updatedAt:now()};for(const p of players)state.hands[p.id]=[];state.deck=shuffle(TERRITORIES.map(t=>({id:`card_${t.id}`,territoryId:t.id,name:t.name,symbol:null})));return state;}
 function drawCard(state,id){const hand=state.hands?.[id]||[];const rules=normalizeRoomSettings(state?.settings);if(rules.cardLimit!=='unlimited'&&hand.length>=5)return null;if(!state.deck.length){if(!state.discardPile.length)return null;state.deck=shuffle(state.discardPile.splice(0));}const c=state.deck.pop();const hasAir=Number(state.airAttackCards?.[id]||0)>0 || hand.some(x=>x.symbol===AIR);c.symbol=(rules.airAttackEnabled&&!hasAir&&Math.random()<0.20)?AIR:CARD_SYMBOLS[Math.floor(Math.random()*3)];state.hands[id]=hand;state.hands[id].push(c);return c;}
 function validSet(cards){if(cards.length!==3)return false;const s=cards.map(c=>c.symbol);return s.every(x=>x===s[0])||new Set(s).size===3;}
 function tradeValue(state){const n=Number(state.cardTradeCount||0);return n<6?TRADE_VALUES[n]:15+(n-5)*5;}
@@ -748,12 +754,14 @@ async function ensureResultSchema(env){
 }
 async function recordResults(env,state){
  if(!state||(!state.winner&&!state.annulled))return false;
+ if(isTrainingGame(state)){state.resultRecorded=true;state.resultRecordError=null;return true;}
  try{
   await ensureCommunitySchema(env);await ensureResultSchema(env);
   const committed=await env.DB.prepare('SELECT room_id FROM match_result_commits WHERE room_id=?').bind(state.roomId).first();
   if(committed){state.resultRecorded=true;state.resultRecordError=null;return true;}
   const ts=Number(state.finishedAt||now()),winner=state.winner,ops=[];
   for(const p of state.players){
+   if(p.isBot)continue;
    const existing=await env.DB.prepare('SELECT id FROM match_history WHERE user_id=? AND room_id=? LIMIT 1').bind(p.id,state.roomId).first();
    if(existing)continue;
    const st=await env.DB.prepare('SELECT * FROM user_stats WHERE user_id=?').bind(p.id).first();
@@ -787,54 +795,101 @@ async function recordResults(env,state){
  }
 }
 
+// Exact dice distributions (including the defender winning ties), cached per isolate.
+const aiDiceCache=new Map(),aiOddsCache=new Map();
+function aiDiceOutcomes(a,d){
+ const key=a+':'+d;if(aiDiceCache.has(key))return aiDiceCache.get(key);
+ const rolls=n=>{let out=[[]];for(let i=0;i<n;i++)out=out.flatMap(r=>[1,2,3,4,5,6].map(v=>[...r,v]));return out.map(r=>r.sort((x,y)=>y-x));};
+ const counts=new Map(),aa=rolls(a),dd=rolls(d);
+ for(const ar of aa)for(const dr of dd){let al=0,dl=0;for(let i=0;i<Math.min(a,d);i++)ar[i]>dr[i]?dl++:al++;const k=al+':'+dl;counts.set(k,(counts.get(k)||0)+1);}
+ const result=[...counts].map(([k,n])=>[...k.split(':').map(Number),n/(aa.length*dd.length)]);aiDiceCache.set(key,result);return result;
+}
+function aiConquestOdds(attackers,defenders){
+ let a=Math.max(0,Math.floor(attackers)),d=Math.max(0,Math.floor(defenders));if(!d)return 1;if(!a)return 0;
+ // Bound planning cost for very large armies; ordinary battles use exact probabilities.
+ if(Math.max(a,d)>60){const scale=60/Math.max(a,d);a=Math.max(1,Math.round(a*scale));d=Math.max(1,Math.round(d*scale));}
+ const key=a+':'+d;if(aiOddsCache.has(key))return aiOddsCache.get(key);
+ const result=aiDiceOutcomes(Math.min(3,a),Math.min(3,d)).reduce((sum,[al,dl,prob])=>sum+prob*aiConquestOdds(a-al,d-dl),0);aiOddsCache.set(key,result);return result;
+}
 function chooseAiAction(state,pid){
-  const p=state.players.find(x=>x.id===pid);if(!p||p.eliminated||!p.aiControlled||state.players[state.turnIndex]?.id!==pid)return null;
-  const t=state.territories;
-  const owned=id=>t[id]?.owner===pid;
-  const ownIds=Object.keys(t).filter(owned);
-  if(state.phase==='setup'){const id=ownIds.sort((a,b)=>(t[a].armies||0)-(t[b].armies||0))[0];return id?{kind:'setupPlace',territoryId:id,amount:1,byConnId:pid}:null;}
-  if(state.phase==='reforco'){
-    ensureReinforcementState(state,pid);
-    if((state.reinforcementStage||'free')==='continent'){
-      const cids=Object.entries(state.continentBonusRemaining||{}).filter(([,n])=>Number(n)>0).map(([c])=>c);
-      for(const cid of cids){const id=ownIds.find(x=>T[x]?.continent===cid);if(id)return {kind:'reinforce',territoryId:id,amount:Math.min(Number(state.continentBonusRemaining[cid]),Number(state.reinforcementsRemaining)||1),byConnId:pid};}
-      return {kind:'endReinforcePhase',byConnId:pid};
-    }
-    if(Number(state.reinforcementsRemaining)>0){
-      const id=ownIds.slice().sort((a,b)=>{const ea=(ADJ[a]||[]).filter(x=>t[x]&&t[x].owner!==pid).length,eb=(ADJ[b]||[]).filter(x=>t[x]&&t[x].owner!==pid).length;return eb-ea || (t[b].armies||0)-(t[a].armies||0)})[0];
-      if(id)return {kind:'reinforce',territoryId:id,amount:Number(state.reinforcementsRemaining),byConnId:pid};
-    }
-    return {kind:'endReinforcePhase',byConnId:pid};
+ const p=state.players.find(x=>x.id===pid);if(!p||p.eliminated||!p.aiControlled||state.players[state.turnIndex]?.id!==pid||state.airAttackPending)return null;
+ const t=state.territories,ownIds=Object.keys(t).filter(id=>t[id].owner===pid),objective=state.objectives?.[pid]||{};
+ const enemies=id=>(ADJ[id]||[]).filter(x=>t[x]&&t[x].owner!==pid);
+ const continentIds=cid=>TERRITORIES.filter(x=>x.continent===cid).map(x=>x.id);
+ const counts={};for(const x of Object.values(t))counts[x.owner]=(counts[x.owner]||0)+1;
+ function targetValue(id){
+  const x=t[id],cid=T[id].continent,ids=continentIds(cid),mine=ids.filter(k=>t[k].owner===pid).length;
+  let score=3+(CONTINENTS[cid]?.bonus||0)*(mine+1)/ids.length;
+  if(mine===ids.length-1)score+=18;
+  if(ids.every(k=>t[k].owner===x.owner))score+=10+(CONTINENTS[cid]?.bonus||0)*2;
+  if(objective.list?.includes(cid))score+=7;
+  if(objective.type==='territories')score+=4;
+  const opponent=state.players.find(q=>q.id===x.owner);
+  if(objective.type==='eliminate'&&opponent?.color===objective.targetColor)score+=12;
+  if(counts[x.owner]===1)score+=25;
+  // Avoid reading opponents' hidden objectives or cards.
+  if(counts[x.owner]>=20)score+=6;
+  return score;
+ }
+ function reinforceValue(id){
+  const near=enemies(id);if(!near.length)return -10-t[id].armies;
+  const threat=Math.max(...near.map(x=>Math.max(0,t[x].armies-1))),deficit=Math.max(0,threat-t[id].armies);
+  const opportunity=Math.max(...near.map(x=>targetValue(x)+12*aiConquestOdds(t[id].armies+2,t[x].armies)-Math.max(0,t[x].armies*1.5-t[id].armies)*.4));
+  const defense=continentOwned(state,pid,T[id].continent)?deficit*2+10:deficit*.5;
+  return opportunity+defense-t[id].armies*.3;
+ }
+ function bestReinforcement(ids){return ids.slice().sort((a,b)=>reinforceValue(b)-reinforceValue(a))[0];}
+ const action=(kind,extra={})=>({kind,byConnId:pid,...extra});
+ if(state.phase==='setup'){const id=bestReinforcement(ownIds);return id?action('setupPlace',{territoryId:id,amount:Math.min(3,Number(state.setupRemaining[pid]||0))}):null;}
+ if(state.phase==='reforco'){
+  ensureReinforcementState(state,pid);
+  const hand=state.hands?.[pid]||[],rules=normalizeRoomSettings(state.settings),air=hand.find(c=>c.symbol===AIR);
+  if(rules.airAttackEnabled&&air&&!Number(state.airAttackCards?.[pid]))return action('exchangeCards',{cardIds:[air.id]});
+  const groups=CARD_SYMBOLS.filter(s=>s!==AIR).map(s=>hand.filter(c=>c.symbol===s).sort((a,b)=>Number(t[b.territoryId]?.owner===pid)-Number(t[a.territoryId]?.owner===pid)));
+  const sets=groups.filter(g=>g.length>=3).map(g=>g.slice(0,3));if(groups.every(g=>g.length))sets.push(groups.map(g=>g[0]));
+  if(sets.length){sets.sort((a,b)=>b.filter(c=>t[c.territoryId]?.owner===pid).length-a.filter(c=>t[c.territoryId]?.owner===pid).length);return action('exchangeCards',{cardIds:sets[0].map(c=>c.id)});}
+  if(state.reinforcementStage==='continent'){
+   for(const [cid,n]of Object.entries(state.continentBonusRemaining||{}))if(n>0){const id=bestReinforcement(ownIds.filter(x=>T[x].continent===cid));if(id)return action('reinforce',{territoryId:id,amount:Math.min(3,n,state.reinforcementsRemaining)});}
   }
-  if(state.phase==='ataque'){
-    if(state.pendingConquestTransfer){const q=state.pendingConquestTransfer;const max=Math.max(1,Math.min(Number(q.maxTransfer)||1,(t[q.fromId]?.armies||1)-1));return {kind:'conquestTransfer',fromId:q.fromId,toId:q.toId,amount:max,byConnId:pid};}
-    let best=null;
-    for(const fromId of ownIds){const from=t[fromId];if((from.armies||0)<2)continue;for(const toId of (ADJ[fromId]||[])){const to=t[toId];if(!to||to.owner===pid)continue;const advantage=(from.armies||0)-(to.armies||0);if(advantage>=2 && (!best||advantage>best.advantage))best={fromId,toId,advantage};}}
-    if(best)return {kind:'attack',fromId:best.fromId,toId:best.toId,dice:Math.min(3,(t[best.fromId].armies||0)-1),byConnId:pid};
-    // Sem outro ataque vantajoso, a IA entra na fortificação. A próxima iteração
-    // decide uma movimentação defensiva ou encerra a vez se não houver melhoria útil.
-    return {kind:'endAttackPhase',byConnId:pid};
+  if(state.reinforcementsRemaining>0)return action('reinforce',{territoryId:bestReinforcement(ownIds),amount:Math.min(3,state.reinforcementsRemaining)});
+  return action('endReinforcePhase');
+ }
+ if(state.phase==='ataque'){
+  if(state.pendingConquestTransfer){const q=state.pendingConquestTransfer,ids=q.fromIds||[q.fromId],available=ids.reduce((n,id)=>n+Math.max(0,t[id].armies-1),0);return action('conquestTransfer',{fromId:q.fromId,toId:q.toId,amount:Math.min(3,q.maxTransfer,available)});}
+  if(normalizeRoomSettings(state.settings).airAttackEnabled&&state.airAttackCards?.[pid]>0){
+   const id=Object.keys(t).filter(id=>t[id].owner!==pid).sort((a,b)=>(targetValue(b)+t[b].armies*2)-(targetValue(a)+t[a].armies*2))[0];
+   if(id)return action('airAttack',{toId:id});
   }
-  if(state.phase==='fortificacao'){
-    // Um território que já recebeu tropas nesta fortificação fica travado como origem.
-    // A IA precisa respeitar exatamente a mesma regra do jogador humano; caso contrário
-    // ela escolhe uma origem inválida para sempre e nunca chega ao fim da vez.
-    const locked=new Set(state.fortifyLockedTerritories||[]);
-    let best=null;
-    for(const fromId of ownIds){
-      const from=t[fromId];
-      if(locked.has(fromId)||(from.armies||0)<2)continue;
-      for(const toId of (ADJ[fromId]||[])){
-        const to=t[toId];
-        if(!to||to.owner!==pid)continue;
-        const score=(from.armies||0)-(to.armies||0);
-        if(!best||score>best.score)best={fromId,toId,score};
-      }
-    }
-    if(best&&best.score>0)return {kind:'fortify',fromId:best.fromId,toId:best.toId,amount:1,byConnId:pid};
-    return {kind:'endTurn',byConnId:pid};
+  let best=null;
+  for(const toId of Object.keys(t).filter(id=>t[id].owner!==pid)){
+   const sources=ownIds.filter(id=>(ADJ[id]||[]).includes(toId)&&t[id].armies>=2).sort((a,b)=>t[b].armies-t[a].armies);
+   const options=sources.map(id=>[id]);if(sources.length>1)options.push(sources);
+   for(const ids of options){const available=ids.reduce((sum,id)=>sum+t[id].armies-1,0),chance=aiConquestOdds(available,t[toId].armies),value=targetValue(toId);
+    const threshold=value>=25 ? .55 : (p.conqueredThisTurn ? .72 : .63);if(chance<threshold)continue;
+    const exposure=ids.reduce((sum,id)=>sum+Math.max(0,enemies(id).filter(x=>x!==toId).length-1),0);
+    const score=chance*(value+8)-t[toId].armies*(1-chance)-exposure*1.5;
+    if(!best||score>best.score)best={ids,toId,score};
+   }
   }
-  return null;
+  if(best)return best.ids.length>1?action('unitedAttack',{fromIds:best.ids,toId:best.toId}):action('attack',{fromId:best.ids[0],toId:best.toId,dice:Math.min(3,t[best.ids[0]].armies-1)});
+  return action('endAttackPhase');
+ }
+ if(state.phase==='fortificacao'){
+  const locked=new Set(state.fortifyLockedTerritories||[]),dist={},queue=ownIds.filter(id=>enemies(id).length);for(const id of queue)dist[id]=0;
+  for(let i=0;i<queue.length;i++)for(const n of ADJ[queue[i]]||[])if(t[n]?.owner===pid&&dist[n]===undefined){dist[n]=dist[queue[i]]+1;queue.push(n);}
+  let best=null;
+  for(const fromId of ownIds){if(locked.has(fromId)||t[fromId].armies<=1)continue;
+   for(const toId of ADJ[fromId]||[]){if(t[toId]?.owner!==pid)continue;
+    const interior=dist[fromId]>0&&dist[toId]<dist[fromId],threat=enemies(fromId).reduce((v,id)=>Math.max(v,t[id].armies-1),0),reserve=interior?1:Math.max(2,threat);
+    const amount=t[fromId].armies-reserve;if(amount<1)continue;
+    const gain=interior?20+amount:reinforceValue(toId)-reinforceValue(fromId);if(gain<=3)continue;
+    if(!best||gain>best.gain)best={fromId,toId,amount,gain};
+   }
+  }
+  if(best)return action('fortify',{fromId:best.fromId,toId:best.toId,amount:best.amount});
+  return action('endTurn');
+ }
+ return null;
 }
 function chooseAiFallbackAction(state,pid){
   const p=state?.players?.[state.turnIndex];
@@ -940,6 +995,7 @@ export class UORRoom {
   if(!this.room||this.game)return;
   const ts=now();let changed=false;
   for(const p of [...this.room.players]){
+   if(p.isBot)continue;
    const ws=this.sockets.get(p.id),last=Number(p.waitingSeenAt||this.room.waitingLastActivityAt||ts);
    if(ws&&ts-last<20000){if(p.waitingDisconnectedAt){delete p.waitingDisconnectedAt;changed=true;}continue;}
    if(!p.waitingDisconnectedAt){p.waitingDisconnectedAt=ws?last+20000:ts;changed=true;}
@@ -947,9 +1003,9 @@ export class UORRoom {
    if(ws){try{ws.close(4000,'waiting_timeout')}catch{}this.sockets.delete(p.id);}
    await releaseRoomClaim(this.env,p.id,this.room.id);this.room.players=this.room.players.filter(x=>x.id!==p.id);changed=true;
   }
-  if(!this.room.players.length){await this.beginRoomCleanup(this.room.id);return;}
+  if(!this.room.players.some(p=>!p.isBot)){await this.beginRoomCleanup(this.room.id);return;}
   if(!this.room.players.some(p=>p.id===this.room.hostConnId)){
-   const next=this.room.players.find(p=>this.sockets.has(p.id)&&!p.waitingDisconnectedAt)||this.room.players[0];this.room.hostConnId=next.id;changed=true;
+   const next=this.room.players.find(p=>this.sockets.has(p.id)&&!p.waitingDisconnectedAt)||this.room.players.find(p=>!p.isBot);this.room.hostConnId=next.id;changed=true;
   }
   if(changed){await this.persist();await syncRoomRow(this.env,this.room.id,await this.roomForPublic());this.broadcast({type:'room_state',room:await this.roomForPublic()});}
  }
@@ -997,7 +1053,7 @@ export class UORRoom {
    if(this.room){
     const rid=this.room.id;
     if(this.game){this.room=scrub(this.room);for(const rp of this.room.players||[])if(rp.id===newId){rp.name='Jogador excluído';rp.role='PLAYER';}if(nick)this.room.name=this.room.name.split(nick).join('Jogador excluído');const next=this.game.players.find(x=>!x.accountDeleted&&!x.abandoned&&!x.eliminated)||this.game.players.find(x=>!x.accountDeleted);if(this.room.hostConnId===newId&&next){this.room.hostConnId=next.id;this.game.hostConnId=next.id;}}
-    else {this.room.players=this.room.players.filter(x=>x.id!==uid);if(this.room.hostConnId===uid)this.room.hostConnId=this.room.players[0]?.id;if(!this.room.players.length)this.room=null;else if(nick)this.room.name=this.room.name.split(nick).join('Jogador excluído');}
+    else {this.room.players=this.room.players.filter(x=>x.id!==uid);if(this.room.hostConnId===uid)this.room.hostConnId=this.room.players.find(p=>!p.isBot)?.id;if(!this.room.players.some(p=>!p.isBot))this.room=null;else if(nick)this.room.name=this.room.name.split(nick).join('Jogador excluído');}
     await this.persist();if(this.game)await this.closeIfOnlyAiAfterGrace();if(this.room)await syncRoomRow(this.env,rid,await this.roomForPublic());else if(!await this.beginRoomCleanup(rid))throw new Error('Limpeza da sala pendente.');
    }
    const evidence=await this.state.storage.get('chatEvidence')||[];await this.state.storage.put('chatEvidence',evidence.filter(x=>x.userId!==uid));
@@ -1031,7 +1087,8 @@ export class UORRoom {
    const st=await this.env.DB.prepare('SELECT points FROM user_stats WHERE user_id=?').bind(uid).first();
    const player={id:uid,connId:uid,name:u.nick,role:normalizeRole(u.role),rankId:rankFor(Number(st?.points||0)).id,color:COLORS.includes(b.players[0].color)?b.players[0].color:COLORS[0],ready:true,eliminated:false};
    this.room={id:b.id,name:String(b.name||'Sala').slice(0,120),maxPlayers:6,settings:normalizeRoomSettings(b.settings),hostConnId:uid,players:[player],waitingLastActivityAt:now()};
-   await this.persist();await this.scheduleNextAlarm();return json({ok:true});
+   this.room.players.push(...createRoomBots(this.room));
+   await this.persist();await syncRoomRow(this.env,this.room.id,await this.roomForPublic());await this.scheduleNextAlarm();return json({ok:true,room:await this.roomForPublic()});
   }
   if(path.endsWith('/internal/join')){if(this.game)return json({ok:false,error:'A partida já começou.'},409);const b=await body(req),uid=req.headers.get('x-uor-user');if(!uid||b.userId!==uid)return json({ok:false},403);if(!this.room)return json({ok:false,error:'Sala inexistente.'},404);const claim=await this.env.DB.prepare('SELECT room_id FROM user_room_memberships WHERE user_id=?').bind(uid).first();if(claim?.room_id!==this.room.id)return json({ok:false,error:'Sua reserva expirou. Entre na sala novamente.'},409);if(this.room.players.some(p=>p.id===uid))return json({ok:true,room:await this.roomForPublic(),assignedColor:this.room.players.find(p=>p.id===uid).color});if(this.room.players.length>=this.room.maxPlayers)return json({ok:false,error:'Sala cheia, jogador.'},409);const used=this.room.players.map(p=>p.color),color=COLORS.includes(b.color)&&!used.includes(b.color)?b.color:COLORS.find(c=>!used.includes(c))||COLORS[0];this.room.players.push({id:uid,connId:uid,name:String(b.name||'Jogador').slice(0,24),color,rankId:String(b.rankId||'soldado'),role:normalizeRole(b.role),ready:false,eliminated:false});await this.persist();this.broadcast({type:'room_state',room:await this.roomForPublic()});return json({ok:true,room:await this.roomForPublic(),assignedColor:color});}
   if(path.endsWith('/internal/status')){const uid=req.headers.get('x-uor-user');if(!this.game||!this.room)return json({ok:true,active:false});const p=this.game.players.find(x=>x.id===uid);if(!p)return json({ok:true,active:false});return json({ok:true,active:true,room:await this.roomForPublic(),state:this.gameStateForClient(this.game,uid,false),player:{id:p.id,name:p.name,aiControlled:!!p.aiControlled,abandoned:!!p.abandoned,eliminated:!!p.eliminated,reconnectUntil:Number(p.reconnectUntil||0),remainingMs:Math.max(0,Number(p.reconnectUntil||0)-now())}});}
@@ -1052,7 +1109,7 @@ export class UORRoom {
    await this.persist();await this.scheduleNextAlarm();
    return json({ok:true,room:await this.roomForPublic(),state:this.gameStateForClient(this.game,uid,false)});
   }
-  if(path.endsWith('/internal/leave')){const uid=req.headers.get('x-uor-user');if(!this.room)return json({ok:true,deleted:true});if(this.game){const p=this.game.players.find(x=>x.id===uid);if(!p)return json({ok:false,error:'Jogador não encontrado.'},404);if(this.game.winner||this.game.resultRecorded){const closed=await this.closeFinishedRoom();return json({ok:true,deleted:!!closed,finished:true});}if(p.eliminated){this.sockets.get(uid)?.close(1000,'eliminated_leave');this.sockets.delete(uid);await releaseRoomClaim(this.env,uid,this.room.id);await syncRoomRow(this.env,this.room.id,await this.roomForPublic());await this.scheduleNextAlarm();return json({ok:true,room:await this.roomForPublic(),eliminated:true,abandoned:false});}if(p.abandoned){await this.closeIfOnlyAiAfterGrace();await this.scheduleNextAlarm();return json({ok:true,room:await this.roomForPublic(),abandoned:true});}const suspension=await applyDesertionSuspension(this.env,uid);p.abandoned=true;p.aiControlled=true;p.connectionStatus='abandoned';p.disconnectAt=now();p.reconnectUntil=0;p.logLabel='Desertou';this.sockets.get(uid)?.close(1000,'abandon');this.sockets.delete(uid);this.game.log.push(`${p.name} abandonou a partida.`);await this.persist();await syncRoomRow(this.env,this.room.id,await this.roomForPublic());this.broadcast({type:'game_state_sync',state:this.game});const closed=await this.closeIfOnlyAiAfterGrace();await this.scheduleNextAlarm();return json({ok:true,room:closed?null:await this.roomForPublic(),deleted:!!closed,abandoned:true,suspension});}this.sockets.get(uid)?.close(1000,'leave');this.sockets.delete(uid);await releaseRoomClaim(this.env,uid,this.room.id);this.room.players=this.room.players.filter(p=>p.id!==uid);if(!this.room.players.length){const cleaned=await this.beginRoomCleanup(this.room.id);return cleaned?json({ok:true,deleted:true}):json({ok:false,error:'Encerramento em andamento. Tente novamente em instantes.'},503);}if(this.room.hostConnId===uid)this.room.hostConnId=this.room.players[0].id;await this.persist();this.broadcast({type:'room_state',room:await this.roomForPublic()});return json({ok:true,room:await this.roomForPublic()});}
+  if(path.endsWith('/internal/leave')){const uid=req.headers.get('x-uor-user');if(!this.room)return json({ok:true,deleted:true});if(this.game){const p=this.game.players.find(x=>x.id===uid);if(!p)return json({ok:false,error:'Jogador não encontrado.'},404);if(this.game.winner||this.game.resultRecorded){const closed=await this.closeFinishedRoom();return json({ok:true,deleted:!!closed,finished:true});}if(p.eliminated){this.sockets.get(uid)?.close(1000,'eliminated_leave');this.sockets.delete(uid);await releaseRoomClaim(this.env,uid,this.room.id);await syncRoomRow(this.env,this.room.id,await this.roomForPublic());await this.scheduleNextAlarm();return json({ok:true,room:await this.roomForPublic(),eliminated:true,abandoned:false});}if(p.abandoned){await this.closeIfOnlyAiAfterGrace();await this.scheduleNextAlarm();return json({ok:true,room:await this.roomForPublic(),abandoned:true});}const suspension=isTrainingGame(this.game)?null:await applyDesertionSuspension(this.env,uid);p.abandoned=true;p.aiControlled=true;p.connectionStatus='abandoned';p.disconnectAt=now();p.reconnectUntil=0;p.logLabel=isTrainingGame(this.game)?'Saiu do treino':'Desertou';this.sockets.get(uid)?.close(1000,'abandon');this.sockets.delete(uid);this.game.log.push(`${p.name} abandonou a partida.`);await this.persist();await syncRoomRow(this.env,this.room.id,await this.roomForPublic());this.broadcast({type:'game_state_sync',state:this.game});const training=isTrainingGame(this.game),closed=await this.closeIfOnlyAiAfterGrace();await this.scheduleNextAlarm();return json({ok:true,room:closed?null:await this.roomForPublic(),deleted:!!closed,abandoned:true,suspension,training});}this.sockets.get(uid)?.close(1000,'leave');this.sockets.delete(uid);await releaseRoomClaim(this.env,uid,this.room.id);this.room.players=this.room.players.filter(p=>p.id!==uid);if(!this.room.players.some(p=>!p.isBot)){const cleaned=await this.beginRoomCleanup(this.room.id);return cleaned?json({ok:true,deleted:true}):json({ok:false,error:'Encerramento em andamento. Tente novamente em instantes.'},503);}if(this.room.hostConnId===uid)this.room.hostConnId=this.room.players.find(p=>!p.isBot).id;await this.persist();this.broadcast({type:'room_state',room:await this.roomForPublic()});return json({ok:true,room:await this.roomForPublic()});}
   if(path==='/ws' || path.startsWith('/ws')){if(req.headers.get('Upgrade')!=='websocket')return new Response('WebSocket required',{status:426});const uid=req.headers.get('x-uor-user');if(!uid||!this.room)return new Response('Unauthorized',{status:401});const isSpectator=req.headers.get('x-uor-spectator')==='1';if(isSpectator){if(!this.game||this.game.winner||this.game.annulled)return new Response('A partida não está em andamento.',{status:409});const u=await this.env.DB.prepare('SELECT id,role FROM users WHERE id=?').bind(uid).first();if(!u||!isStaffOrAdmin(u))return new Response('Acesso de espectador permitido apenas para STAFF/ADMIN.',{status:403});if(this.game?.players?.some(p=>p.id===uid||p.connId===uid))return new Response('Este cargo já participa desta partida.',{status:409});this.spectators.add(uid);}else{this.spectators.delete(uid);if(this.game){const p=this.game.players.find(x=>x.id===uid);if(!p||p.abandoned||p.eliminated)return new Response('Forbidden',{status:403});if(p.kickActive&&Number(p.kickUntil||0)>now())return new Response('Kick temporário ativo.',{status:403});if(this.game.winner||this.game.annulled||this.game.finishedAt)return new Response('A partida já foi encerrada.',{status:409});if(p.kickActive){p.reconnectUntil=Number(p.kickUntil)+RECONNECT_GRACE_MS;p.kickActive=false;p.kickUntil=0;}if(Number(p.reconnectUntil||0)>0&&Number(p.reconnectUntil)<=now()){await this.registerExpiredDesertion(uid);await this.closeIfOnlyAiAfterGrace();return new Response('O tempo de reconexão terminou.',{status:403});}p.aiControlled=false;p.connectionStatus='online';p.disconnectAt=null;p.reconnectUntil=null;await this.persist();}else if(!this.room.players?.some(p=>p.id===uid)){return new Response('Forbidden',{status:403});}}const publicRoom=await this.roomForPublic();const pair=new WebSocketPair(),client=pair[0],server=pair[1];server.accept();this.socketSessions.set(server,req.headers.get('x-uor-session-id'));this.personalMutes.set(uid,new Set(await personalMuteIds(this.env,uid)));const previous=this.sockets.get(uid);if(previous&&previous!==server){try{previous.close(4001,'replaced_by_new_connection')}catch{}}this.sockets.set(uid,server);if(!this.game&&!isSpectator){const p=this.room.players.find(p=>p.id===uid);if(p){p.waitingSeenAt=now();delete p.waitingDisconnectedAt;}await this.persist();}if(this.game&&!isSpectator){const gp=this.game.players.find(x=>x.id===uid);if(gp)gp.lastSeenAt=now();}server.addEventListener('message',e=>{const task=this.onMessage(uid,server,e).catch(err=>console.error('UOR socket action error',err));this.state.waitUntil?.(task);});server.addEventListener('close',()=>{const task=this.onClose(uid,server).catch(err=>console.error('UOR socket close error',err));this.state.waitUntil?.(task);});server.send(JSON.stringify({type:'room_state',room:publicRoom}));if(this.game)server.send(JSON.stringify({type:'game_state_sync',state:this.gameStateForClient(this.game,uid,isSpectator)}));this.scheduleNextAlarm();return new Response(null,{status:101,webSocket:client});}
   return json({ok:false,error:'Not found'},404);
  }
@@ -1120,10 +1177,11 @@ export class UORRoom {
   let action=chooseAiAction(this.game,p.id);if(!action)return false;
   let candidate=structuredClone(this.game),next=applyAction(candidate,action,true);
   if(!next){const fallback=chooseAiFallbackAction(this.game,p.id);if(!fallback||fallback.kind===action.kind)return false;action=fallback;candidate=structuredClone(this.game);next=applyAction(candidate,action,true);if(!next)return false;}
+  if(action.kind==='airAttack'&&next.airAttackPending)next.airAttackPending.resolveAt=now()+6000;
   this.game=next;this.game.winner=checkWinner(this.game);
   if(this.game.winner&&!this.game.finishedAt)this.game.finishedAt=now();
   if(this.game.winner&&!this.game.resultRecorded)await recordResults(this.env,this.game);
-  await this.persist();this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.game}});return true;
+  await this.persist();if(action.kind==='airAttack')this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'air_attack_visual',action,ts:now()}});this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.game}});return true;
  }
  async beginRoomCleanup(rid){
   await this.state.storage.put('pendingRoomCleanup',{id:rid});
@@ -1151,8 +1209,8 @@ export class UORRoom {
  }
  async closeIfOnlyAiAfterGrace(){
   if(!this.game||!this.room||this.game.winner||this.game.annulled||this.game.resultRecorded)return false;
-  const active=this.game.players.filter(p=>!p.eliminated);
-  if(!active.length||active.some(p=>!p.aiControlled&&!p.abandoned))return false;
+  const active=this.game.players.filter(p=>!p.isBot&&!p.eliminated);
+  if((!active.length&&!isTrainingGame(this.game))||active.some(p=>!p.aiControlled&&!p.abandoned))return false;
   const ts=now();
   for(const p of active){
    if(p.abandoned)continue;
@@ -1167,13 +1225,13 @@ export class UORRoom {
   const committed=await recordResults(this.env,this.game);
   await this.persist();this.broadcast({type:'game_state_sync',state:this.game});
   if(!committed)return false;
-  return this.closeFinishedRoom('A partida foi encerrada automaticamente porque não restou nenhum jogador humano. As deserções foram registradas.');
+  return this.closeFinishedRoom(isTrainingGame(this.game)?'Treino encerrado: não restou nenhum jogador humano. Sem pontos ou penalidades.':'A partida foi encerrada automaticamente porque não restou nenhum jogador humano. As deserções foram registradas.');
  }
  async registerExpiredDesertion(uid){
-  const p=this.game?.players?.find(x=>x.id===uid);if(!p||p.abandoned||p.eliminated||p.kickActive)return null;
-  const suspension=await applyDesertionSuspension(this.env,uid);
-  p.abandoned=true;p.aiControlled=true;p.connectionStatus='abandoned';p.disconnectAt=p.disconnectAt||now();p.reconnectUntil=0;p.logLabel='Desertou';
-  this.game.log.push(`${p.name} não retornou em 10 minutos e foi registrado como deserção.`);
+  const p=this.game?.players?.find(x=>x.id===uid);if(!p||p.isBot||p.abandoned||p.eliminated||p.kickActive)return null;
+  const suspension=isTrainingGame(this.game)?null:await applyDesertionSuspension(this.env,uid);
+  p.abandoned=true;p.aiControlled=true;p.connectionStatus='abandoned';p.disconnectAt=p.disconnectAt||now();p.reconnectUntil=0;p.logLabel=isTrainingGame(this.game)?'Saiu do treino':'Desertou';
+  this.game.log.push(isTrainingGame(this.game)?`${p.name} saiu do treino após o prazo de reconexão, sem penalidade.`:`${p.name} não retornou em 10 minutos e foi registrado como deserção.`);
   this.broadcast({type:'game_state_sync',state:this.game});await this.persist();if(this.room)await syncRoomRow(this.env,this.room.id,await this.roomForPublic());return suspension;
  }
  async resolveAirAttack(){
@@ -1217,7 +1275,7 @@ export class UORRoom {
  async onMessageUnlocked(uid,ws,e){if(!this.allowSocketMessage(ws)||typeof e.data!=='string'||e.data.length>8192)return;if(!await this.validateSocketSession(uid,ws))return;if(this.sockets.get(uid)!==ws){try{ws.close(4001,'stale_connection')}catch{}return;}let m;try{m=JSON.parse(e.data)}catch{return}if(m?.type==='room_chat'||m?.type==='game_chat'){if(!await hasChatConsent(this.env,uid)){ws.send(JSON.stringify({type:'room_relay',roomId:this.room?.id,payload:{type:'chat_rejected',reason:'Leia e aceite os termos antes de usar o chat.'}}));return;}const ts=now();if(ts-Number(this.chatLastSent.get(uid)||0)<1000)return;this.chatLastSent.set(uid,ts);}const isSpectator=this.spectators.has(uid);if(this.game&&!isSpectator){const hp=this.game.players.find(x=>x.id===uid);if(hp)hp.lastSeenAt=now();}if(!m?.type)return;if(isSpectator&&m.type!=='sync_request'&&m.type!=='game_chat'&&m.type!=='heartbeat'){ws.send(JSON.stringify({type:'room_relay',roomId:this.room?.id,payload:{type:'spectator_action_rejected',reason:'Modo espectador: ações de jogo estão bloqueadas.'}}));return;}if(m.type==='heartbeat'){if(this.room&&!this.game&&!isSpectator){this.room.waitingLastActivityAt=now();const p=this.room.players.find(p=>p.id===uid);if(p){p.waitingSeenAt=now();delete p.waitingDisconnectedAt;}}try{ws.send(JSON.stringify({type:'heartbeat_ack',ts:now()}))}catch{};if(!isSpectator)await this.persist();await this.scheduleNextAlarm();return;}if(m.type==='sync_request'){try{ws.send(JSON.stringify({type:'heartbeat_ack',ts:now()}))}catch{};if(this.game){normalizeObjectives(this.game);if(this.game.phase==='reforco'&&(!Object.prototype.hasOwnProperty.call(this.game,'continentBonusRemaining')||!Object.prototype.hasOwnProperty.call(this.game,'reinforcementStage'))){const cp=this.game.players?.[this.game.turnIndex];if(cp)beginReinforcementPhase(this.game,cp.id);}await this.persist();ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_state_sync',state:this.gameStateForClient(this.game,uid,isSpectator)}}));}else if(this.room)ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'room_state',room:await this.roomForPublic()}}));await this.scheduleNextAlarm();return;}if(m.type==='room_chat'){const muted=await getActiveMute(this.env,uid);if(muted){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'chat_rejected',reason:`Você está silenciado por mais ${Math.max(1,Math.ceil((muted.expiresAt-now())/60000))} minuto(s).`}}));return;}const rp=this.room.players.find(p=>p.id===uid);const entry={id:uuid(),userId:uid,name:rp?.name||'Jogador',color:rp?.color||COLORS[0],rankId:rp?.rankId||'soldado',role:normalizeRole(rp?.role),text:String(m.entry?.text||'').trim().slice(0,400),ts:now()};if(!entry.text)return;await this.saveChatEvidence(entry);this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'room_chat',entry}});return;}
   if(m.type==='game_chat'){if(!this.game)return;const muted=await getActiveMute(this.env,uid);if(muted){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'chat_rejected',reason:`Você está silenciado por mais ${Math.max(1,Math.ceil((muted.expiresAt-now())/60000))} minuto(s).`}}));return;}const text=String(m.entry?.text||'').trim().slice(0,400);if(!text)return;if(isSpectator){const u=await this.env.DB.prepare('SELECT u.id,u.nick,u.role,s.points FROM users u JOIN user_stats s ON s.user_id=u.id WHERE u.id=?').bind(uid).first();if(!u||!isStaffOrAdmin(u))return;const entry={id:uuid(),userId:uid,name:u.nick,color:COLORS[0],rankId:rankFor(Number(u.points||0)).id,role:normalizeRole(u.role),text,ts:now(),spectator:true};await this.saveChatEvidence(entry);this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_chat',entry}});return;}const p=this.game.players.find(x=>x.id===uid);if(!p||p.eliminated)return;const entry={id:uuid(),userId:uid,name:p.name,color:p.color,rankId:p.rankId||'soldado',role:normalizeRole(p.role),text,ts:now()};await this.saveChatEvidence(entry);this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_chat',entry}});return;}
   if(m.type==='room_ready'){if(this.game||!this.room||uid===this.room.hostConnId)return;const p=this.room.players.find(x=>x.id===uid);if(!p)return;p.ready=!p.ready;await this.persist();this.broadcast({type:'room_state',room:await this.roomForPublic()});await syncRoomRow(this.env,this.room.id,await this.roomForPublic());return;}
-  if(m.type==='start_game'){await this.checkWaitingRoom();if(!this.room||this.room.players.some(p=>!this.sockets.has(p.id)||p.waitingDisconnectedAt||now()-Number(p.waitingSeenAt||0)>=20000)){ws.send(JSON.stringify({type:'room_relay',roomId:this.room?.id,payload:{type:'chat_rejected',reason:'Aguarde todos os jogadores reconectarem à sala.'}}));return;}const othersReady=this.room?.players?.length>=2&&this.room.players.filter(p=>p.id!==this.room.hostConnId).every(p=>p.ready===true);if(uid!==this.room.hostConnId||!othersReady||this.game)return;this.room.settings=normalizeRoomSettings(this.room.settings);this.game=initGame(this.room);this.room.gameActive=true;await this.persist();await syncRoomRow(this.env,this.room.id,await this.roomForPublic());this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_start',state:this.game}});return;}
+  if(m.type==='start_game'){await this.checkWaitingRoom();if(!this.room||this.room.players.some(p=>!p.isBot&&(!this.sockets.has(p.id)||p.waitingDisconnectedAt||now()-Number(p.waitingSeenAt||0)>=20000))){ws.send(JSON.stringify({type:'room_relay',roomId:this.room?.id,payload:{type:'chat_rejected',reason:'Aguarde todos os jogadores reconectarem à sala.'}}));return;}const othersReady=this.room?.players?.length>=2&&this.room.players.filter(p=>p.id!==this.room.hostConnId).every(p=>p.ready===true);if(uid!==this.room.hostConnId||!othersReady||this.game)return;this.room.settings=normalizeRoomSettings(this.room.settings);this.game=initGame(this.room);this.room.gameActive=true;await this.persist();await syncRoomRow(this.env,this.room.id,await this.roomForPublic());this.broadcast({type:'room_relay',roomId:this.room.id,payload:{type:'game_start',state:this.game}});return;}
   if(m.type==='air_attack_request'){
    if(!this.game)return;
    if(this.game.winner||this.game.annulled||this.game.finishedAt||this.game.resultRecorded){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_action_rejected',reason:'A partida já foi encerrada.'}}));return;}
