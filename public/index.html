@@ -10,6 +10,26 @@
 #accountSoundToggle:focus-visible,#accountVolumeSlider:focus-visible{outline:2px solid #d2e4ec;outline-offset:3px}
 #accountVolumeSlider{width:88px;min-width:0;accent-color:#8ccbe8;cursor:pointer;margin:0}
 #accountVolumeValue{font:12px/1 system-ui,sans-serif;min-width:26px;text-align:right}
+
+/* Entrada discreta e criação compacta, com ajuste proporcional à área disponível. */
+#accountScreen #accountAudioControls{top:6px;right:6px;padding:0;border:0;background:transparent;gap:0}
+#accountScreen #accountSoundToggle{width:25px;height:25px;font-size:15px;border:0;background:transparent;border-radius:5px;opacity:.8}
+#accountScreen #accountSoundToggle:hover{opacity:1;background:#183347}
+#accountScreen .account-panel{padding-top:28px!important}
+#pv-viewport #createModal .modal,#pv-viewport.pv-tiny #createModal .modal{padding:8px 12px;gap:3px 12px;max-height:none;overflow:visible;grid-template-columns:170px minmax(0,1fr);width:min(760px,calc(var(--pv-w) - 24px));box-sizing:border-box}
+#pv-viewport #createModal h3{font-size:16px;line-height:20px}
+#pv-viewport #createModal .private-room-note{font-size:10px;line-height:13px}
+#pv-viewport #createModal .field-label{font-size:10px;line-height:13px}
+#pv-viewport #createModal .room-stepper,#pv-viewport.pv-tiny #createModal .room-stepper{height:26px;min-height:26px;padding:0 6px;gap:5px;grid-template-columns:minmax(110px,1fr) 25px minmax(100px,1.2fr) 25px}
+#pv-viewport #createModal .room-stepper-label,#pv-viewport #createModal .room-stepper strong{font-size:10px}
+#pv-viewport #createModal .room-stepper-arrow{width:25px;height:24px;font-size:17px}
+#pv-viewport #createModal #createSoldiersValue img{width:18px!important;height:24px!important}
+#pv-viewport #createColorGrid{gap:4px}
+#pv-viewport #createColorGrid .soldier-pick{height:42px}
+#pv-viewport #createColorGrid .soldier-pick svg{width:32px;height:32px}
+#pv-viewport #createModal .room-preview-settings{font-size:9px;line-height:12px;padding:3px 6px}
+#pv-viewport #createModal .modal-actions .btn{height:28px;padding:4px 10px;font-size:11px;width:135px}
+#pv-viewport #createModal .modal-x{width:24px;height:24px;font-size:18px;top:5px;right:7px}
 </style>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -1623,8 +1643,8 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
     <div class="account-shell">
       <div id="accountAudioControls" role="group" aria-label="Som e volume">
         <button id="accountSoundToggle" type="button" title="Desligar som" aria-label="Desligar som" aria-pressed="false">🔊</button>
-        <input id="accountVolumeSlider" type="range" min="0" max="10" value="7" step="1" aria-label="Volume do jogo">
-        <span id="accountVolumeValue" aria-hidden="true">70%</span>
+        
+        
       </div>
       <section class="account-hero">
         <div class="account-kicker">COMANDO CENTRAL</div>
@@ -3042,7 +3062,17 @@ function animateUorSoldierCombat(combat){
   let createModalColor=COLORS[0].id;
   let createRoomSettings={...DEFAULT_CLIENT_ROOM_SETTINGS};
   function refreshCreateColorGrid(){renderColorPicker('createColorGrid',[],createModalColor,c=>{createModalColor=c;refreshCreateColorGrid();renderCreateRoomSettings();});}
+  function fitCreateRoomModal(){
+    const backdrop=$('#createModal'),modal=backdrop?.querySelector('.modal');
+    if(!modal||backdrop.classList.contains('hidden'))return;
+    modal.style.zoom='1';
+    const natural=Math.max(modal.scrollHeight,modal.offsetHeight),available=Math.max(1,backdrop.clientHeight-16);
+    modal.style.zoom=String(Math.min(1,available/natural));
+  }
+  window.addEventListener('resize',()=>requestAnimationFrame(fitCreateRoomModal));
+  window.visualViewport?.addEventListener('resize',()=>requestAnimationFrame(fitCreateRoomModal));
   function renderCreateRoomSettings(){
+    requestAnimationFrame(fitCreateRoomModal);
     createRoomSettings=normalizeClientRoomSettings(createRoomSettings);
     if(!UOR_SOLDIER_SETS[createRoomSettings.map].includes(createRoomSettings.soldiers))createRoomSettings.soldiers=UOR_SOLDIER_SETS[createRoomSettings.map][0];
     const values={map:createRoomSettings.map==='apocalyptic'?'Apocalíptico':(createRoomSettings.map==='glacial'?'Glacial':'Clássico'),air:createRoomSettings.airAttackEnabled?'Ativado':'Desativado',cards:createRoomSettings.cardLimit==='unlimited'?'Ilimitado':'Clássico',soldiers:uorSoldierLabel(createRoomSettings.soldiers)};
@@ -5849,6 +5879,7 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
     new MutationObserver(()=>{if(!q('lobbyScreen').classList.contains('hidden')){identity();fit();}else identityOwner=null;}).observe(q('lobbyScreen'),{attributes:true,attributeFilter:['class']});
     root.addEventListener('click',e=>{const mode=e.target.closest('[data-pv-mode]');if(mode){chosen=mode.dataset.pvMode;root.querySelectorAll('[data-pv-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b===mode)));openCreateModal();createRoomSettings.map=chosen;renderCreateRoomSettings();return;}const join=e.target.closest('[data-live-room]');if(join){openJoinModal(join.dataset.liveRoom);return;}const info=e.target.closest('[data-live-info]');if(info){roomInfo(info.dataset.liveInfo);return;}const player=e.target.closest('[data-live-player]');if(player){const p=onlinePlayers.find(p=>p.id===player.dataset.livePlayer);if(p)openOnlinePlayerActions(p);return;}const b=e.target.closest('[data-pv]');if(!b)return;switch(b.dataset.pv){case'create':openCreateModal();createRoomSettings.map=chosen;renderCreateRoomSettings();break;case'rooms':if(!returnToRoom())showRooms('open');break;case'refresh':refreshLobbyData();break;case'profile':openProfile('overview');break;case'ranking':openProfile('ranking');break;case'tutorial':q('openTutorialBtn').click();break;case'online':q('onlinePlayersBtn').click();break;case'fullscreen':fullscreen();break;case'myroom':if(returnToRoom()){}else showToast('Crie uma sala ou entre em uma partida.');break;case'settings':show('Configurações','<div class="pv-settings-row"><label for="live-volume">Volume</label><input id="live-volume" type="range" min="0" max="10" value="'+q('globalVolumeSlider').value+'"></div><button class="pv-enter" id="live-sound" type="button">LIGAR / DESLIGAR SOM</button><p>Use os controles do chat para minimizar ou ampliar as conversas.</p>');q('live-sound').onclick=()=>q('globalVolumeIcon').click();q('live-volume').oninput=e=>{q('globalVolumeSlider').value=e.target.value;q('globalVolumeSlider').dispatchEvent(new Event('input',{bubbles:true}));};break;case'home':if(myRoomId)waiting.hidden=false;break;}});
     q('createModal').querySelectorAll('.room-choice-group').forEach((g,i)=>g.style.gridRow=String(i+3));
+    new ResizeObserver(()=>requestAnimationFrame(fitCreateRoomModal)).observe(root);
     function recoverMusic(){const audio=q('bgMusicEl');if(audio&&audio.paused&&document.visibilityState!=='hidden')startAmbientMusic();}
     ['pointerup','touchend','keydown'].forEach(event=>document.addEventListener(event,recoverMusic,{passive:true,capture:true}));
     window.addEventListener('uorResumeAudio',recoverMusic);document.addEventListener('visibilitychange',recoverMusic);q('bgMusicEl')?.addEventListener('canplay',recoverMusic);recoverMusic();
@@ -5973,7 +6004,7 @@ RANK_BADGE_IMAGES.sargento=RANK_BADGE_IMAGES.primeiro_sargento||RANK_BADGE_IMAGE
     $('#enterBtn').addEventListener('click', ()=>{ ensureAudioCtx(); startAmbientMusic(); handleEnterName(); });
 
     $('#accountSoundToggle').addEventListener('click',toggleGlobalSound);
-    $('#accountVolumeSlider').addEventListener('input',e=>{ensureAudioCtx();setGlobalVolume(e.target.value);if(Sound.volume>0)startAmbientMusic();});
+    
     $('#globalVolumeIcon').addEventListener('click', e=>{e.stopPropagation();toggleGlobalSound();});
     $('#globalVolumeControl').addEventListener('pointerenter',()=>$('#globalVolumeControl').classList.add('open'));
     $('#globalVolumeControl').addEventListener('pointerleave',()=>$('#globalVolumeControl').classList.remove('open'));
