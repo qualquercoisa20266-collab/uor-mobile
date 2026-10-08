@@ -42,6 +42,9 @@ async function apiDeleteAccount(req,env){
  ops.push(env.DB.prepare(`UPDATE match_history SET opponent_names=(SELECT json_group_array(CASE WHEN j.value=? THEN 'Jogador excluído' ELSE j.value END) FROM json_each(match_history.opponent_names) j),room_name=replace(room_name,?,'Jogador excluído') WHERE user_id<>? AND (EXISTS(SELECT 1 FROM json_each(match_history.opponent_names) j WHERE j.value=?) OR instr(room_name,?)>0)`).bind(user.nick,user.nick,user.id,user.nick,user.nick));
  for(const table of ['user_chat_mutes','user_room_memberships','sessions','user_achievements','match_history','chat_messages','user_stats','user_mutes','user_kicks','user_suspensions','user_consents'])ops.push(env.DB.prepare(`DELETE FROM ${table} WHERE user_id=?`).bind(user.id));
  ops.push(env.DB.prepare('DELETE FROM user_chat_mutes WHERE target_user_id=?').bind(user.id));
+ await ensureResultSchema(env);
+ ops.push(env.DB.prepare('DELETE FROM match_history_details WHERE user_id=?').bind(user.id));
+ ops.push(env.DB.prepare(`UPDATE match_history_details SET details_json=json_set(details_json,'$.players',json((SELECT json_group_array(json(CASE WHEN json_extract(j.value,'$.name')=? THEN json_set(j.value,'$.name','Jogador excluído') ELSE j.value END)) FROM json_each(details_json,'$.players') j)))`).bind(user.nick));
  ops.push(env.DB.prepare('DELETE FROM user_blocks WHERE user_id=? OR blocked_user_id=?').bind(user.id,user.id));
  ops.push(env.DB.prepare('DELETE FROM user_reports WHERE reporter_id=? OR target_id=?').bind(user.id,user.id));
  ops.push(env.DB.prepare("UPDATE user_reports SET reviewed_by=NULL WHERE reviewed_by=?").bind(user.id));
@@ -499,8 +502,10 @@ async function apiAdminBootstrapRole(req,env){
 async function apiProfile(req,env,user){const s=await env.DB.prepare('SELECT * FROM user_stats WHERE user_id=?').bind(user.id).first();const r=rankFor(Number(s?.points||0));const pos=await env.DB.prepare('SELECT COUNT(*) c FROM user_stats WHERE points>?').bind(Number(s?.points||0)).first();const ach=await env.DB.prepare('SELECT a.id,a.name,a.description,ua.unlocked_at FROM user_achievements ua JOIN achievements a ON a.id=ua.achievement_id WHERE ua.user_id=? ORDER BY ua.unlocked_at').bind(user.id).all();return json({ok:true,user:{id:user.id,nick:user.nick,login:user.login,role:normalizeRole(user.role)},stats:{points:Number(s?.points||0),games:Number(s?.games||0),wins:Number(s?.wins||0),losses:Number(s?.losses||0),abandons:Number(s?.abandons||0),winStreak:Number(s?.win_streak||0),bestStreak:Number(s?.best_streak||0),totalConquests:Number(s?.total_conquests||0),totalArmiesDestroyed:Number(s?.total_armies_destroyed||0),totalTurns:Number(s?.total_turns||0)},rank:r,rankingPosition:Number(pos?.c||0)+1,achievements:ach.results||[]});}
 async function apiRanking(req,env){const url=new URL(req.url),limit=safeLimit(url.searchParams.get('limit'),50,100);const rows=await env.DB.prepare(`SELECT u.id,u.nick,u.role,s.points,s.games,s.wins,s.win_streak FROM user_stats s JOIN users u ON u.id=s.user_id ORDER BY s.points DESC,s.wins DESC,s.games ASC,u.created_at ASC LIMIT ?`).bind(limit).all();return json({ok:true,ranking:(rows.results||[]).map((x,i)=>({position:i+1,id:x.id,nick:x.nick,role:normalizeRole(x.role),points:Number(x.points),games:Number(x.games),wins:Number(x.wins),winStreak:Number(x.win_streak),rank:rankFor(Number(x.points))}))});}
 async function apiPublicProfile(req,env,viewerId){const url=new URL(req.url),userId=String(url.searchParams.get('userId')||'').trim();if(!userId)return json({ok:false,error:'Jogador não informado.'},400);const row=await env.DB.prepare('SELECT u.id,u.nick,u.role,s.points,s.games,s.wins,s.losses,s.abandons,s.win_streak,s.best_streak,s.total_conquests,s.total_armies_destroyed,s.total_turns FROM users u JOIN user_stats s ON s.user_id=u.id WHERE u.id=?').bind(userId).first();if(!row)return json({ok:false,error:'Jogador não encontrado.'},404);const r=rankFor(Number(row.points||0));const pos=await env.DB.prepare('SELECT COUNT(*) c FROM user_stats WHERE points>?').bind(Number(row.points||0)).first();const ach=await env.DB.prepare('SELECT a.id,a.name,a.description,ua.unlocked_at FROM user_achievements ua JOIN achievements a ON a.id=ua.achievement_id WHERE ua.user_id=? ORDER BY ua.unlocked_at').bind(userId).all();return json({ok:true,user:{id:row.id,nick:row.nick,login:null,role:normalizeRole(row.role)},stats:{points:Number(row.points||0),games:Number(row.games||0),wins:Number(row.wins||0),losses:Number(row.losses||0),abandons:Number(row.abandons||0),winStreak:Number(row.win_streak||0),bestStreak:Number(row.best_streak||0),totalConquests:Number(row.total_conquests||0),totalArmiesDestroyed:Number(row.total_armies_destroyed||0),totalTurns:Number(row.total_turns||0)},rank:r,rankingPosition:Number(pos?.c||0)+1,achievements:ach.results||[]});}
-async function apiPublicHistory(req,env,viewerId){const url=new URL(req.url),userId=String(url.searchParams.get('userId')||'').trim(),limit=safeLimit(url.searchParams.get('limit'),20,50);if(!userId)return json({ok:false,error:'Jogador não informado.'},400);const exists=await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(userId).first();if(!exists)return json({ok:false,error:'Jogador não encontrado.'},404);const rows=await env.DB.prepare('SELECT result,finished_at,players_count,opponent_names,points_delta,rank_after,room_name FROM match_history WHERE user_id=? ORDER BY finished_at DESC LIMIT ?').bind(userId,limit).all();return json({ok:true,history:(rows.results||[]).map(h=>({...h,playersCount:h.players_count,opponentNames:JSON.parse(h.opponent_names||'[]'),pointsDelta:h.points_delta,rankAfter:h.rank_after,finishedAt:h.finished_at,roomName:h.room_name}))});}
-async function apiHistory(req,env,user){const url=new URL(req.url),limit=safeLimit(url.searchParams.get('limit'),50,100);const rows=await env.DB.prepare('SELECT * FROM match_history WHERE user_id=? ORDER BY finished_at DESC LIMIT ?').bind(user.id,limit).all();return json({ok:true,history:(rows.results||[]).map(h=>({...h,playersCount:h.players_count,opponentNames:JSON.parse(h.opponent_names||'[]'),pointsDelta:h.points_delta,rankAfter:h.rank_after,finishedAt:h.finished_at,roomName:h.room_name}))});}
+function historyPublicRow(h){let details=null;try{details=JSON.parse(h.details_json||'null');}catch{}return {id:h.id,result:h.result,playersCount:h.players_count,opponentNames:JSON.parse(h.opponent_names||'[]'),pointsDelta:h.points_delta,rankAfter:h.rank_after,finishedAt:h.finished_at,roomName:h.room_name,details};}
+async function readHistory(env,userId,limit){await ensureResultSchema(env);const rows=await env.DB.prepare('SELECT h.*,d.details_json FROM match_history h LEFT JOIN match_history_details d ON d.history_id=h.id WHERE h.user_id=? ORDER BY h.finished_at DESC LIMIT ?').bind(userId,limit).all();return (rows.results||[]).map(historyPublicRow);}
+async function apiPublicHistory(req,env,viewerId){const url=new URL(req.url),userId=String(url.searchParams.get('userId')||'').trim(),limit=safeLimit(url.searchParams.get('limit'),20,50);if(!userId)return json({ok:false,error:'Jogador não informado.'},400);if(!await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(userId).first())return json({ok:false,error:'Jogador não encontrado.'},404);return json({ok:true,history:await readHistory(env,userId,limit)});}
+async function apiHistory(req,env,user){const url=new URL(req.url);return json({ok:true,history:await readHistory(env,user.id,safeLimit(url.searchParams.get('limit'),50,100))});}
 
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function roll(n){return Array.from({length:n},()=>1+Math.floor(Math.random()*6));}
@@ -748,7 +753,7 @@ function applyAction(state,a,trustedAi=false){
 let resultSchemaPromise=null;
 async function ensureResultSchema(env){
  if(!resultSchemaPromise){
-  resultSchemaPromise=env.DB.prepare(`CREATE TABLE IF NOT EXISTS match_result_commits (room_id TEXT PRIMARY KEY, finished_at INTEGER NOT NULL)`).run().catch(e=>{resultSchemaPromise=null;throw e;});
+  resultSchemaPromise=env.DB.batch([env.DB.prepare(`CREATE TABLE IF NOT EXISTS match_result_commits (room_id TEXT PRIMARY KEY, finished_at INTEGER NOT NULL)`),env.DB.prepare(`CREATE TABLE IF NOT EXISTS match_history_details (history_id TEXT PRIMARY KEY,user_id TEXT NOT NULL,details_json TEXT NOT NULL)`)]).catch(e=>{resultSchemaPromise=null;throw e;});
  }
  return resultSchemaPromise;
 }
@@ -773,6 +778,8 @@ async function recordResults(env,state){
    const gamesAdd=result==='annulled'?0:1,winsAdd=result==='win'?1:0,lossesAdd=result==='loss'?1:0,abandonsAdd=result==='abandon'?1:0;
    ops.push(env.DB.prepare('UPDATE user_stats SET points=MAX(0,points+?),games=games+?,wins=wins+?,losses=losses+?,abandons=abandons+?,win_streak=CASE WHEN ?=1 THEN win_streak+1 ELSE 0 END,best_streak=MAX(best_streak,CASE WHEN ?=1 THEN win_streak+1 ELSE 0 END),total_conquests=total_conquests+?,total_armies_destroyed=total_armies_destroyed+?,total_turns=total_turns+? WHERE user_id=? AND NOT EXISTS(SELECT 1 FROM match_result_commits WHERE room_id=?) AND NOT EXISTS(SELECT 1 FROM user_deletion_requests WHERE user_id=?)').bind(delta,gamesAdd,winsAdd,lossesAdd,abandonsAdd,winsAdd,winsAdd,Number(state.playerStats?.[p.id]?.conquests||0),Number(state.playerStats?.[p.id]?.armiesDestroyed||0),Number(state.turnNumber||0),p.id,state.roomId,p.id));
    const opponents=state.players.filter(x=>x.id!==p.id).map(x=>x.name);
+   const details={version:1,mode:state.matchMode||'ranked',settings:normalizeRoomSettings(state.settings),startedAt:state.startedAt,finishedAt:ts,durationMs:Math.max(0,ts-Number(state.startedAt||ts)),rounds:Number(state.turnNumber||0),endedReason:state.endedReason|| (state.annulled?'annulled':'victory'),players:state.players.map(x=>({name:x.name,color:x.color,result:x.abandoned?'abandon':state.annulled?'annulled':x.id===winner?'win':'loss',aiTakeover:!!x.aiControlled,isBot:!!x.isBot,conquests:Number(state.playerStats?.[x.id]?.conquests||0),armiesDestroyed:Number(state.playerStats?.[x.id]?.armiesDestroyed||0),cardTrades:Number(state.cardTradeStats?.[x.id]?.trades||0),territories:Object.values(state.territories||{}).filter(t=>t.owner===x.id).length}))};
+   ops.push(env.DB.prepare('INSERT OR IGNORE INTO match_history_details(history_id,user_id,details_json) SELECT ?,?,? WHERE NOT EXISTS(SELECT 1 FROM match_result_commits WHERE room_id=?) AND NOT EXISTS(SELECT 1 FROM user_deletion_requests WHERE user_id=?)').bind(`result:${state.roomId}:${p.id}`,p.id,JSON.stringify(details),state.roomId,p.id));
    ops.push(env.DB.prepare(`INSERT OR IGNORE INTO match_history(id,user_id,room_id,room_name,result,finished_at,players_count,opponent_names,points_delta,rank_after) SELECT ?,?,?,?,?,?,?,?,?,(SELECT CASE WHEN points>=8000 THEN 'General' WHEN points>=5500 THEN 'Coronel' WHEN points>=3500 THEN 'Tenente-Coronel' WHEN points>=2000 THEN 'Major' WHEN points>=1000 THEN 'Capitão' WHEN points>=500 THEN 'Tenente' WHEN points>=300 THEN 'Sargento' WHEN points>=100 THEN 'Cabo' ELSE 'Soldado' END FROM user_stats WHERE user_id=?) WHERE NOT EXISTS(SELECT 1 FROM match_result_commits WHERE room_id=?) AND NOT EXISTS(SELECT 1 FROM user_deletion_requests WHERE user_id=?)`).bind(`result:${state.roomId}:${p.id}`,p.id,state.roomId,state.roomName,result,ts,state.players.length,JSON.stringify(opponents),delta,p.id,state.roomId,p.id));
   }
   ops.push(env.DB.prepare('INSERT OR IGNORE INTO match_result_commits(room_id,finished_at) VALUES(?,?)').bind(state.roomId,ts));
@@ -935,13 +942,22 @@ export class UORRoom {
  async onClose(uid,ws){return this.serializedMutation(()=>this.onCloseUnlocked(uid,ws));}
  async alarm(){return this.serializedMutation(()=>this.alarmUnlocked());}
  async socialAction(uid,b){
+  if(!uid||!b||typeof b.action!=='string')return json({ok:false,error:'Solicitação inválida.'},400);
   const ts=now(),online=id=>{const p=this.presenceUsers.get(id);return p&&ts-Number(p.lastSeenAt||0)<20000?p:null;};
-  const send=(id,msg)=>{let delivered=false;for(const ws of this.presenceSockets.get(id)||[])if(ws.readyState===1){ws.send(JSON.stringify(msg));delivered=true;}return delivered;};
-  const friendKey='friends:'+uid,friendIds=await this.state.storage.get(friendKey)||[];
+  const get=async key=>await this.state.storage.get(key)||[];
+  const send=(id,msg)=>{for(const ws of this.presenceSockets.get(id)||[])if(ws.readyState===1)try{ws.send(JSON.stringify(msg));}catch{}};
+  const notify=id=>send(id,{type:'social_updated'});
+  const friendKey='friends:'+uid,friendIds=await get(friendKey),blocked=await get('socialBlocked:'+uid),targetId=String(b.targetId||'');
+  const blockedPair=async id=>blocked.includes(id)||(await get('socialBlocked:'+id)).includes(uid);
+  const validRoom=async inv=>{if(inv.expiresAt&&inv.expiresAt<=ts)return null;const row=await this.env.DB.prepare('SELECT * FROM rooms WHERE id=?').bind(inv.roomId).first();const room=row?roomPublic(row):null;return room&&!room.gameActive&&room.players.some(p=>p.id===inv.fromId)?room:null;};
   if(b.action==='list'){
-   const friends=[];for(const id of friendIds){const p=online(id)||await this.env.DB.prepare('SELECT id,nick FROM users WHERE id=?').bind(id).first();if(p)friends.push({...p,online:!!online(id),available:online(id)?.available===true});}
-   const requests=await this.state.storage.get('friendRequests:'+uid)||[];
-   return json({ok:true,users:[...this.presenceUsers.values()].filter(p=>p.id!==uid&&online(p.id)&&p.available&&p.location==='lobby'),friends,requests,nextInviteAt:Number(await this.state.storage.get('inviteCooldown:'+uid)||0)});
+   const friends=[];for(const id of friendIds){if(await blockedPair(id))continue;const p=online(id)||await this.env.DB.prepare('SELECT id,nick FROM users WHERE id=?').bind(id).first();if(p)friends.push({...p,online:!!online(id),available:online(id)?.available===true});}
+   const requests=[];for(const p of await get('friendRequests:'+uid)){if(!p?.id||await blockedPair(p.id))continue;const current=await this.env.DB.prepare('SELECT id,nick FROM users WHERE id=?').bind(p.id).first();if(current)requests.push(current);}
+   const invitations=[];for(const inv of await get('invitations:'+uid))if(!await blockedPair(inv.fromId)&&await validRoom(inv))invitations.push(inv);
+   const users=[];for(const p of this.presenceUsers.values())if(p.id!==uid&&online(p.id)&&p.available&&p.location==='lobby'&&!await blockedPair(p.id))users.push(p);
+   const blockedUsers=[];for(const id of blocked){const p=await this.env.DB.prepare('SELECT id,nick FROM users WHERE id=?').bind(id).first();if(p)blockedUsers.push(p);}
+   await this.state.storage.put({['friendRequests:'+uid]:requests,['invitations:'+uid]:invitations});
+   return json({ok:true,users,friends,requests,invitations,blocked:blockedUsers,nextInviteAt:Number(await this.state.storage.get('inviteCooldown:'+uid)||0)});
   }
   if(b.action==='availability'){
    const p=online(uid);if(!p||p.location!=='lobby')return json({ok:false,error:'Altere seu status somente no lobby.'},409);
@@ -949,45 +965,57 @@ export class UORRoom {
    if(active?.game_active)return json({ok:false,error:'Altere seu status somente no lobby.'},409);
    p.available=b.available===true;await this.state.storage.put('available:'+uid,p.available);this.broadcastPresence();return json({ok:true,available:p.available});
   }
-  const targetId=String(b.targetId||'');
+  if(b.action==='block'||b.action==='unblock'){
+   if(!targetId||targetId.length>128||targetId===uid)return json({ok:false,error:'Jogador inválido.'},400);
+   if(b.action==='unblock'){await this.state.storage.put('socialBlocked:'+uid,blocked.filter(id=>id!==targetId));notify(uid);return json({ok:true});}
+   if(!await this.env.DB.prepare('SELECT id FROM users WHERE id=?').bind(targetId).first())return json({ok:false,error:'Jogador não encontrado.'},404);
+   if(blocked.length>=100&&!blocked.includes(targetId))return json({ok:false,error:'Limite de bloqueados atingido.'},409);
+   const otherFriends=await get('friends:'+targetId),ownRequests=await get('friendRequests:'+uid),otherRequests=await get('friendRequests:'+targetId),ownInvites=await get('invitations:'+uid),otherInvites=await get('invitations:'+targetId);
+   await this.state.storage.put({['socialBlocked:'+uid]:[...new Set([...blocked,targetId])],[friendKey]:friendIds.filter(id=>id!==targetId),['friends:'+targetId]:otherFriends.filter(id=>id!==uid),['friendRequests:'+uid]:ownRequests.filter(p=>p.id!==targetId),['friendRequests:'+targetId]:otherRequests.filter(p=>p.id!==uid),['invitations:'+uid]:ownInvites.filter(p=>p.fromId!==targetId),['invitations:'+targetId]:otherInvites.filter(p=>p.fromId!==uid)});notify(uid);notify(targetId);return json({ok:true});
+  }
+  if(['friend-request','friend-accept','invite'].includes(b.action)&&await blockedPair(targetId))return json({ok:false,error:'Contato indisponível.'},403);
   if(b.action==='friend-request'){
    if(!targetId||targetId===uid||friendIds.includes(targetId))return json({ok:false,error:'Amigo inválido ou já adicionado.'},400);
    const target=await this.env.DB.prepare('SELECT id FROM users WHERE id=?').bind(targetId).first();if(!target)return json({ok:false,error:'Jogador não encontrado.'},404);
-   const pending=await this.state.storage.get('friendRequests:'+targetId)||[];
+   const pending=await get('friendRequests:'+targetId);
+   if(pending.some(p=>p.id===uid))return json({ok:true,pending:true});
    if(pending.length>=100||friendIds.length>=100)return json({ok:false,error:'Limite de amigos ou solicitações atingido.'},409);
-   if(!pending.some(p=>p.id===uid)){const from=await this.env.DB.prepare('SELECT id,nick FROM users WHERE id=?').bind(uid).first();pending.push(from);await this.state.storage.put('friendRequests:'+targetId,pending);send(targetId,{type:'social_notice',text:'Você recebeu uma solicitação de amizade.'});}
-   return json({ok:true});
+   const from=await this.env.DB.prepare('SELECT id,nick FROM users WHERE id=?').bind(uid).first();if(!from)return json({ok:false},401);
+   await this.state.storage.put('friendRequests:'+targetId,[...pending,from]);notify(targetId);return json({ok:true});
   }
-  if(b.action==='friend-accept'||b.action==='friend-decline'||b.action==='friend-remove'){
-   const requests=await this.state.storage.get('friendRequests:'+uid)||[];
+  if(['friend-accept','friend-decline','friend-remove'].includes(b.action)){
+   const requests=await get('friendRequests:'+uid),other=await get('friends:'+targetId),otherRequests=await get('friendRequests:'+targetId);
    if(b.action==='friend-accept'){
     if(!requests.some(p=>p.id===targetId))return json({ok:false,error:'Solicitação não encontrada.'},404);
-    const other=await this.state.storage.get('friends:'+targetId)||[];if(friendIds.length>=100||other.length>=100)return json({ok:false,error:'Limite de amigos atingido.'},409);
-    await this.state.storage.put({[friendKey]:[...new Set([...friendIds,targetId])],['friends:'+targetId]:[...new Set([...other,uid])]});
+    if(!await this.env.DB.prepare('SELECT id FROM users WHERE id=?').bind(targetId).first())return json({ok:false,error:'Conta indisponível.'},404);
+    if(friendIds.length>=100||other.length>=100)return json({ok:false,error:'Limite de amigos atingido.'},409);
+    await this.state.storage.put({[friendKey]:[...new Set([...friendIds,targetId])],['friends:'+targetId]:[...new Set([...other,uid])],['friendRequests:'+targetId]:otherRequests.filter(p=>p.id!==uid)});
    }
-   if(b.action==='friend-remove'){const other=await this.state.storage.get('friends:'+targetId)||[];await this.state.storage.put({[friendKey]:friendIds.filter(id=>id!==targetId),['friends:'+targetId]:other.filter(id=>id!==uid)});}
-   await this.state.storage.put('friendRequests:'+uid,requests.filter(p=>p.id!==targetId));return json({ok:true});
+   if(b.action==='friend-remove')await this.state.storage.put({[friendKey]:friendIds.filter(id=>id!==targetId),['friends:'+targetId]:other.filter(id=>id!==uid)});
+   await this.state.storage.put('friendRequests:'+uid,requests.filter(p=>p.id!==targetId));notify(uid);notify(targetId);return json({ok:true});
   }
   if(b.action==='invite'){
    const next=Number(await this.state.storage.get('inviteCooldown:'+uid)||0);if(next>ts)return json({ok:false,error:`Aguarde ${Math.ceil((next-ts)/1000)} segundos para convidar novamente.`,nextInviteAt:next},429);
    const row=await this.env.DB.prepare('SELECT * FROM rooms WHERE id=?').bind(String(b.roomId||'')).first(),room=row?roomPublic(row):null;
    if(!room||room.gameActive||room.players.length>=room.maxPlayers||!room.players.some(p=>p.id===uid))return json({ok:false,error:'Entre em uma sala aberta com vaga para convidar.'},409);
    const target=online(targetId);if(targetId===uid||!target?.available||target.location!=='lobby'||room.players.some(p=>p.id===targetId))return json({ok:false,error:'Jogador indisponível para convite.'},409);
-   const from=online(uid);if(!from)return json({ok:false,error:'Reconecte ao lobby para convidar.'},409);
-   const key='invitations:'+targetId,pending=(await this.state.storage.get(key)||[]).filter(i=>i.expiresAt>ts);if(pending.length>=20)return json({ok:false,error:'Jogador já possui muitos convites pendentes.'},429);
-   const invitation={id:uuid(),roomId:room.id,roomName:room.name,fromId:uid,fromNick:from.nick,expiresAt:ts+60000};
-   await this.state.storage.put({[key]:[...pending,invitation],['inviteCooldown:'+uid]:ts+30000});
-   send(targetId,{type:'room_invitation',invitation});return json({ok:true,nextInviteAt:ts+30000});
+   const membership=await this.env.DB.prepare('SELECT room_id FROM user_room_memberships WHERE user_id=?').bind(targetId).first();if(membership)return json({ok:false,error:'Jogador já está em outra sala.'},409);
+   const from=await this.env.DB.prepare('SELECT id,nick FROM users WHERE id=?').bind(uid).first();if(!from)return json({ok:false},401);
+   const key='invitations:'+targetId,pending=[];for(const i of await get(key))if(i.roomId!==room.id&&await validRoom(i))pending.push(i);
+   if(pending.length>=20)return json({ok:false,error:'Jogador já possui muitos convites pendentes.'},429);
+   const invitation={id:uuid(),roomId:room.id,roomName:room.name,fromId:uid,fromNick:from.nick,createdAt:ts};
+   await this.state.storage.put({[key]:[...pending,invitation],['inviteCooldown:'+uid]:ts+30000});send(targetId,{type:'room_invitation',invitation});return json({ok:true,nextInviteAt:ts+30000});
   }
-  if(b.action==='invite-accept'||b.action==='invite-decline'){
-   const key='invitations:'+uid,pending=await this.state.storage.get(key)||[],inv=pending.find(i=>i.id===b.inviteId&&i.expiresAt>ts);
-   await this.state.storage.put(key,pending.filter(i=>i.id!==b.inviteId&&i.expiresAt>ts));
-   if(b.action==='invite-decline')return json({ok:true});
-   if(!inv)return json({ok:false,error:'Convite expirado.'},410);
-   if(!online(uid)?.available)return json({ok:false,error:'Você está ausente.'},409);
-   const row=await this.env.DB.prepare('SELECT * FROM rooms WHERE id=?').bind(inv.roomId).first();
-   if(!row||row.game_active)return json({ok:false,error:'A sala encerrou ou a partida já começou.'},409);
-   return json({ok:true,room:roomPublic(row)});
+  if(['invite-accept','invite-decline','invite-consumed'].includes(b.action)){
+   const key='invitations:'+uid,pending=await get(key),inv=pending.find(i=>i.id===b.inviteId);
+   if(b.action==='invite-decline'){await this.state.storage.put(key,pending.filter(i=>i.id!==b.inviteId));notify(uid);return json({ok:true});}
+   if(!inv)return json({ok:false,error:'Convite não encontrado.'},410);
+   if(b.action==='invite-consumed'){const member=await this.env.DB.prepare('SELECT room_id FROM user_room_memberships WHERE user_id=?').bind(uid).first();if(member?.room_id!==inv.roomId)return json({ok:false,error:'Entre na sala antes de concluir o convite.'},409);await this.state.storage.put(key,pending.filter(i=>i.id!==inv.id));notify(uid);return json({ok:true});}
+   const room=await validRoom(inv);if(!room||await blockedPair(inv.fromId)){await this.state.storage.put(key,pending.filter(i=>i.id!==inv.id));return json({ok:false,error:'A sala encerrou ou o convite não está disponível.'},410);}
+   if(!online(uid)?.available)return json({ok:false,error:'Marque Disponível antes de aceitar.'},409);
+   const member=await this.env.DB.prepare('SELECT room_id FROM user_room_memberships WHERE user_id=?').bind(uid).first();if(member&&member.room_id!==room.id)return json({ok:false,error:'Saia da sua sala antes de aceitar outro convite.'},409);
+   if(room.players.length>=room.maxPlayers&&!room.players.some(p=>p.id===uid))return json({ok:false,error:'A sala está cheia.'},409);
+   return json({ok:true,room});
   }
   return json({ok:false,error:'Ação inválida.'},400);
  }
