@@ -1734,7 +1734,7 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
 </style>
 <style id="uor-board-styles">
 #gameScreen.map-theme-board{background:#08366c!important}
-#gameScreen.map-theme-board .map-wrap{max-height:none!important;aspect-ratio:1536/839!important;min-width:0!important;min-height:0!important;background-size:100% 100%!important}
+#gameScreen.map-theme-board .map-wrap{max-height:none!important;aspect-ratio:auto!important;min-width:0!important;min-height:0!important;background-size:100% 100%!important}
 #gameScreen.map-theme-board .game-topbar{min-height:30px!important;padding:3px 9px!important;background:linear-gradient(#07356ee8,#07356e00)!important}
 #gameScreen.map-theme-board .game-dock{bottom:4px!important;max-width:1496px;padding:4px 7px!important;gap:5px!important;border:2px solid #f2d856!important;border-radius:10px!important;background:linear-gradient(#1268a9,#084376)!important;box-shadow:0 2px 8px #001b39!important}
 #gameScreen.map-theme-board .game-dock::before,#gameScreen.map-theme-board .game-dock::after{display:none}
@@ -4255,8 +4255,8 @@ function canAttack(a,b){
 function fitBoardViewport(){const screen=$('#gameScreen'),wrap=screen?.querySelector('.map-wrap');if(!wrap)return;
  if(!screen.classList.contains('map-theme-board')){for(const p of ['width','height','left','top'])wrap.style.removeProperty(p);return;}
  const body=screen.querySelector('.game-body'),dock=screen.querySelector('.game-dock'),w=body.clientWidth,h=body.clientHeight;if(!w||!h)return;
- const dockHeight=Math.max(52,dock?.offsetHeight||64)+10,top=Math.min(44,h*.085),scale=Math.min(w/1536,Math.max(1,h-dockHeight-top)/839);
- wrap.style.width=1536*scale+'px';wrap.style.height=839*scale+'px';wrap.style.left=(w-1536*scale)/2+'px';wrap.style.top=top+'px';}
+ const dockHeight=Math.max(52,dock?.offsetHeight||64)+10;
+ wrap.style.width=w+'px';wrap.style.height=Math.max(1,h-dockHeight)+'px';wrap.style.left='0px';wrap.style.top='0px';}
 window.addEventListener('resize',()=>requestAnimationFrame(fitBoardViewport));window.visualViewport?.addEventListener('resize',()=>requestAnimationFrame(fitBoardViewport));
 function boardSeaRoutesSvg(){if(gameState?.settings?.map!=='board')return '';
  const paths=['M754 212L747 229','M744 336Q780 365 814 324','M100 175Q47 218 3 232M1533 232Q1479 230 1425 227','M440 184Q467 175 500 160','M490 220Q513 195 531 177','M596 170Q620 167 647 181','M663 215L674 237','M698 251Q708 199 743 185','M702 263L727 266','M679 281L684 303','M704 348L709 371','M812 311Q839 337 873 340','M866 405L888 393','M525 516Q582 470 625 442','M893 542L943 589','M870 661L932 644','M1318 403L1394 392','M1420 254Q1481 299 1427 351','M1107 453Q1130 484 1183 500','M1258 488L1289 507','M1244 580L1265 612','M1305 568L1307 607','M1337 539L1388 558','M1432 598L1391 625'];
