@@ -98,6 +98,10 @@ const ADJ = {
  dudinka:['omsk','mongolia','siberia'],omsk:['dudinka','mongolia','aral','moscou'],siberia:['dudinka','tchita','vladivostok','mongolia'],vladivostok:['siberia','tchita','japao','alaska'],tchita:['siberia','vladivostok','mongolia','china'],mongolia:['omsk','siberia','tchita','aral','china','dudinka'],aral:['omsk','mongolia','china','oriente_medio','moscou','india'],china:['mongolia','tchita','aral','india','vietna','japao'],oriente_medio:['moscou','aral','india','egito','polonia','italia'],india:['oriente_medio','aral','china','vietna','sumatra'],vietna:['china','india','borneu'],japao:['vladivostok','china'],
  australia:['sumatra','borneu','nova_guine'],nova_guine:['australia','borneu'],borneu:['nova_guine','vietna','australia'],sumatra:['australia','india']
 };
+const UOR_BOARD_CONFIG={"id":"board","name":"Tabuleiro","revision":1,"width":1536,"height":839,"territories":[{"id":"alaska","name":"Alasca","continent":"NA","x":185,"y":150},{"id":"mackenzie","name":"Mackenzie","continent":"NA","x":320,"y":164},{"id":"vancouver","name":"Vancouver","continent":"NA","x":257,"y":216},{"id":"ottawa","name":"Ottawa","continent":"NA","x":353,"y":238},{"id":"labrador","name":"Labrador","continent":"NA","x":450,"y":240},{"id":"california","name":"Califórnia","continent":"NA","x":216,"y":295},{"id":"nova_york","name":"Nova York","continent":"NA","x":345,"y":306},{"id":"mexico","name":"México","continent":"NA","x":237,"y":377},{"id":"groelandia","name":"Groelândia","continent":"NA","x":590,"y":122},{"id":"colombia","name":"Colômbia","continent":"SA","x":386,"y":462},{"id":"brasil","name":"Brasil","continent":"SA","x":457,"y":548},{"id":"chile","name":"Chile","continent":"SA","x":350,"y":544},{"id":"argentina","name":"Argentina","continent":"SA","x":405,"y":640},{"id":"islandia","name":"Islândia","continent":"EU","x":658,"y":196},{"id":"inglaterra","name":"Inglaterra","continent":"EU","x":676,"y":259},{"id":"suecia","name":"Suécia","continent":"EU","x":776,"y":171},{"id":"alemanha","name":"Alemanha","continent":"EU","x":762,"y":266},{"id":"portugal","name":"Portugal","continent":"EU","x":703,"y":317},{"id":"polonia","name":"Polônia","continent":"EU","x":837,"y":267},{"id":"moscou","name":"Moscou","continent":"EU","x":908,"y":222},{"id":"argelia","name":"Argélia","continent":"AF","x":703,"y":407},{"id":"egito","name":"Egito","continent":"AF","x":845,"y":405},{"id":"sudao","name":"Sudão","continent":"AF","x":861,"y":471},{"id":"congo","name":"Congo","continent":"AF","x":800,"y":524},{"id":"africa_sul","name":"África do Sul","continent":"AF","x":814,"y":622},{"id":"madagascar","name":"Madagascar","continent":"AF","x":956,"y":630},{"id":"dudinka","name":"Dudinka","continent":"AS","x":1047,"y":133},{"id":"omsk","name":"Omsk","continent":"AS","x":1027,"y":198},{"id":"siberia","name":"Sibéria","continent":"AS","x":1183,"y":181},{"id":"vladivostok","name":"Vladivostok","continent":"AS","x":1359,"y":197},{"id":"tchita","name":"Tchita","continent":"AS","x":1201,"y":237},{"id":"mongolia","name":"Mongólia","continent":"AS","x":1208,"y":281},{"id":"aral","name":"Aral","continent":"AS","x":1039,"y":270},{"id":"china","name":"China","continent":"AS","x":1195,"y":351},{"id":"oriente_medio","name":"Oriente Médio","continent":"AS","x":965,"y":362},{"id":"india","name":"Índia","continent":"AS","x":1090,"y":407},{"id":"vietna","name":"Vietnã","continent":"AS","x":1236,"y":429},{"id":"japao","name":"Japão","continent":"AS","x":1416,"y":377},{"id":"sumatra","name":"Sumatra","continent":"OC","x":1231,"y":549},{"id":"borneu","name":"Bornéu","continent":"OC","x":1300,"y":529},{"id":"nova_guine","name":"Nova Guiné","continent":"OC","x":1435,"y":565},{"id":"australia","name":"Austrália","continent":"OC","x":1336,"y":669}],"adjacency":{"alaska":["mackenzie","vancouver","vladivostok"],"mackenzie":["alaska","vancouver","ottawa","groelandia"],"vancouver":["alaska","mackenzie","ottawa","california"],"ottawa":["mackenzie","vancouver","california","nova_york","labrador"],"labrador":["ottawa","nova_york","groelandia"],"california":["vancouver","ottawa","nova_york","mexico"],"nova_york":["ottawa","labrador","california","mexico"],"mexico":["california","nova_york","colombia"],"groelandia":["mackenzie","labrador","islandia"],"colombia":["mexico","chile","brasil"],"brasil":["colombia","chile","argentina","argelia"],"chile":["colombia","brasil","argentina"],"argentina":["chile","brasil"],"islandia":["groelandia","inglaterra"],"inglaterra":["islandia","suecia","alemanha","portugal"],"suecia":["moscou","alemanha","inglaterra"],"alemanha":["polonia","portugal","suecia","inglaterra"],"portugal":["alemanha","polonia","inglaterra","argelia"],"polonia":["alemanha","moscou","portugal","oriente_medio"],"moscou":["suecia","polonia","omsk","aral"],"argelia":["egito","sudao","congo","portugal","brasil"],"egito":["argelia","sudao","oriente_medio"],"sudao":["argelia","egito","congo","africa_sul","madagascar"],"congo":["argelia","sudao","africa_sul"],"africa_sul":["sudao","congo","madagascar"],"madagascar":["sudao","africa_sul"],"dudinka":["omsk","siberia"],"omsk":["moscou","dudinka","tchita","aral","siberia"],"siberia":["omsk","dudinka","tchita","vladivostok"],"vladivostok":["siberia","tchita","china","alaska","japao"],"tchita":["omsk","siberia","vladivostok","mongolia","aral"],"mongolia":["tchita","china","aral"],"aral":["moscou","omsk","tchita","mongolia","china","oriente_medio","india"],"china":["vladivostok","mongolia","aral","india","vietna","japao"],"oriente_medio":["aral","india","polonia","egito"],"india":["aral","china","vietna","oriente_medio","sumatra"],"vietna":["china","india","borneu"],"japao":["china","vladivostok"],"sumatra":["india","australia"],"borneu":["vietna","australia","nova_guine"],"nova_guine":["borneu","australia"],"australia":["sumatra","borneu","nova_guine"]},"seaRoutes":[["suecia","alemanha"],["portugal","polonia"],["alaska","vladivostok"],["mackenzie","groelandia"],["labrador","groelandia"],["groelandia","islandia"],["islandia","inglaterra"],["inglaterra","suecia"],["inglaterra","alemanha"],["inglaterra","portugal"],["portugal","argelia"],["polonia","oriente_medio"],["egito","oriente_medio"],["brasil","argelia"],["sudao","madagascar"],["africa_sul","madagascar"],["china","japao"],["vladivostok","japao"],["india","sumatra"],["vietna","borneu"],["sumatra","australia"],["borneu","australia"],["borneu","nova_guine"],["nova_guine","australia"]],"bonuses":{"NA":5,"SA":2,"EU":4,"AF":4,"AS":6,"OC":2}};
+const LEGACY_MAP_RULES={territories:TERRITORIES,index:T,adj:ADJ};
+const BOARD_MAP_RULES={territories:UOR_BOARD_CONFIG.territories,index:Object.fromEntries(UOR_BOARD_CONFIG.territories.map(t=>[t.id,t])),adj:UOR_BOARD_CONFIG.adjacency};
+function mapRules(state){return state?.settings?.map==='board'?BOARD_MAP_RULES:LEGACY_MAP_RULES;}
 const OBJECTIVE_POOL = [
  {type:'territories',count:24,text:'Conquistar 24 territórios quaisquer.'},
  {type:'continents',list:['AS','AF'],text:'Dominar por completo a Ásia e a África.'},{type:'continents',list:['AS','SA'],text:'Dominar por completo a Ásia e a América do Sul.'},{type:'continents',list:['NA','AF'],text:'Dominar por completo a América do Norte e a África.'},{type:'continents',list:['NA','OC'],text:'Dominar por completo a América do Norte e a Oceania.'},
@@ -107,10 +111,10 @@ const STARTING_ARMIES = {2:40,3:35,4:30,5:25,6:20};
 const CARD_SYMBOLS = ['espada','castelo','cavalo','aviao'];
 const TRADE_VALUES = [4,6,8,10,12,15];
 const AIR = 'aviao';
-const UOR_SOLDIER_SETS={classic:['knight','musketeer','ranger','royal'],apocalyptic:['infantry','raider','heavy'],glacial:['polar','scout','cryo']};
+const UOR_SOLDIER_SETS={classic:['knight','musketeer','ranger','royal'],apocalyptic:['infantry','raider','heavy'],glacial:['polar','scout','cryo'],board:['board_guard','board_rifle','board_commando']};
 function normalizeUorSoldier(map,value){const options=UOR_SOLDIER_SETS[map]||UOR_SOLDIER_SETS.classic;return options.includes(value)?value:((value==='classic'||value==='military')?value:options[0]);}
 const DEFAULT_ROOM_SETTINGS = { mode:'ranked', botCount:0, map:'classic', airAttackEnabled:true, cardLimit:'classic', soldiers:'knight' };
-function normalizeRoomSettings(raw){const r=raw&&typeof raw==='object'?raw:{};const map=r.map==='apocalyptic'?'apocalyptic':(r.map==='glacial'?'glacial':'classic');const mode=r.mode==='training'?'training':'ranked';const count=Number(r.botCount);return {mode,botCount:mode==='training'?(Number.isSafeInteger(count)?Math.max(1,Math.min(5,count)):1):0,map,airAttackEnabled:r.airAttackEnabled===false||r.airAttack==='disabled'?false:true,cardLimit:r.cardLimit==='unlimited'?'unlimited':'classic',soldiers:normalizeUorSoldier(map,r.soldiers)};}
+function normalizeRoomSettings(raw){const r=raw&&typeof raw==='object'?raw:{};const map=r.map==='board'?'board':r.map==='apocalyptic'?'apocalyptic':(r.map==='glacial'?'glacial':'classic');const mode=r.mode==='training'?'training':'ranked';const count=Number(r.botCount);return {mode,botCount:mode==='training'?(Number.isSafeInteger(count)?Math.max(1,Math.min(5,count)):1):0,map,airAttackEnabled:r.airAttackEnabled===false||r.airAttack==='disabled'?false:true,cardLimit:r.cardLimit==='unlimited'?'unlimited':'classic',soldiers:normalizeUorSoldier(map,r.soldiers)};}
 
 function isTrainingGame(state){return state?.matchMode==='training'||(!state?.matchMode&&state?.settings?.mode==='training');}
 function createRoomBots(room){
@@ -122,7 +126,7 @@ function now(){return Date.now();}
 function uuid(){return crypto.randomUUID();}
 function safeLimit(value,fallback,max){const n=Number(value);return Number.isSafeInteger(n)&&n>0?Math.min(max,n):fallback;}
 function strictPositiveInt(value){if(typeof value!=='number')return null;const n=value;return Number.isSafeInteger(n)&&n>=1?n:null;}
-function validTerritoryId(id){return typeof id==='string'&&Object.prototype.hasOwnProperty.call(T,id);}
+function validTerritoryId(id,state){return typeof id==='string'&&Object.prototype.hasOwnProperty.call(mapRules(state).index,id);}
 function isPlainObject(v){return !!v&&typeof v==='object'&&!Array.isArray(v);}
 function json(data,status=200,extra={}){return new Response(JSON.stringify(data),{status,headers:{...JSON_HEADERS,...extra}});}
 function parseCookie(req,name){const s=req.headers.get('Cookie')||'';for(const p of s.split(';')){const [k,...v]=p.trim().split('=');if(k===name){try{return decodeURIComponent(v.join('='));}catch{return null;}}}return null;}
@@ -509,14 +513,14 @@ async function apiHistory(req,env,user){const url=new URL(req.url);return json({
 
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function roll(n){return Array.from({length:n},()=>1+Math.floor(Math.random()*6));}
-function adjacent(a,b){return !!ADJ[a]?.includes(b);}
-function reinforcementPlan(state,userId){const owned=TERRITORIES.filter(t=>state.territories[t.id].owner===userId);const free=Math.max(3,Math.floor(owned.length/3));const bonuses={};for(const [cid,c] of Object.entries(CONTINENTS)){const ts=TERRITORIES.filter(t=>t.continent===cid);if(ts.length&&ts.every(t=>state.territories[t.id].owner===userId))bonuses[cid]=c.bonus;}return {free,bonuses};}
+function adjacent(a,b,state){return !!mapRules(state).adj[a]?.includes(b);}
+function reinforcementPlan(state,userId){const {territories:TERRITORIES,index:T,adj:ADJ}=mapRules(state);const owned=TERRITORIES.filter(t=>state.territories[t.id].owner===userId);const free=Math.max(3,Math.floor(owned.length/3));const bonuses={};for(const [cid,c] of Object.entries(CONTINENTS)){const ts=TERRITORIES.filter(t=>t.continent===cid);if(ts.length&&ts.every(t=>state.territories[t.id].owner===userId))bonuses[cid]=c.bonus;}return {free,bonuses};}
 function reinforcements(state,userId){const plan=reinforcementPlan(state,userId);return plan.free+Object.values(plan.bonuses).reduce((s,n)=>s+n,0);}
 function beginReinforcementPhase(state,userId){const plan=reinforcementPlan(state,userId);state.continentBonusRemaining=structuredClone(plan.bonuses);state.pendingFreeReinforcements=plan.free;const bonusTotal=Object.values(plan.bonuses).reduce((s,n)=>s+n,0);state.reinforcementStage=bonusTotal>0?'continent':'free';state.reinforcementsRemaining=bonusTotal>0?bonusTotal:plan.free;if(bonusTotal===0)state.pendingFreeReinforcements=0;state.reinforcementOwnerId=userId;return state;}
 function ensureReinforcementState(state,userId){if(state.phase!=='reforco')return state;if(!Object.prototype.hasOwnProperty.call(state,'continentBonusRemaining')||!Object.prototype.hasOwnProperty.call(state,'reinforcementStage'))beginReinforcementPhase(state,userId);return state;}
 function finishContinentBonusStage(state){const remaining=Object.values(state.continentBonusRemaining||{}).reduce((s,n)=>s+Math.max(0,Number(n)||0),0);if(remaining>0)return false;state.reinforcementStage='free';state.reinforcementsRemaining=Math.max(0,Number(state.pendingFreeReinforcements)||0);state.pendingFreeReinforcements=0;return true;}
-function continentOwned(state,userId,cid){return TERRITORIES.filter(t=>t.continent===cid).every(t=>state.territories[t.id].owner===userId);}
-function objectiveWinner(state,p){const owned=TERRITORIES.filter(t=>state.territories[t.id].owner===p.id).length,o=state.objectives[p.id];if(owned===TERRITORIES.length)return true;if(!o)return false;if(o.type==='territories')return owned>=Number(o.count||24);if(o.type==='continents')return o.list.every(cid=>continentOwned(state,p.id,cid));if(o.type==='continents_any_extra')return o.list.every(cid=>continentOwned(state,p.id,cid))&&Object.keys(CONTINENTS).filter(cid=>!o.list.includes(cid)).filter(cid=>continentOwned(state,p.id,cid)).length>=o.extra;if(o.type==='eliminate'){const target=state.players.find(x=>x.color===o.targetColor);return !!target?.eliminated;}return false;}
+function continentOwned(state,userId,cid){const {territories:TERRITORIES,index:T,adj:ADJ}=mapRules(state);return TERRITORIES.filter(t=>t.continent===cid).every(t=>state.territories[t.id].owner===userId);}
+function objectiveWinner(state,p){const {territories:TERRITORIES,index:T,adj:ADJ}=mapRules(state);const owned=TERRITORIES.filter(t=>state.territories[t.id].owner===p.id).length,o=state.objectives[p.id];if(owned===TERRITORIES.length)return true;if(!o)return false;if(o.type==='territories')return owned>=Number(o.count||24);if(o.type==='continents')return o.list.every(cid=>continentOwned(state,p.id,cid));if(o.type==='continents_any_extra')return o.list.every(cid=>continentOwned(state,p.id,cid))&&Object.keys(CONTINENTS).filter(cid=>!o.list.includes(cid)).filter(cid=>continentOwned(state,p.id,cid)).length>=o.extra;if(o.type==='eliminate'){const target=state.players.find(x=>x.color===o.targetColor);return !!target?.eliminated;}return false;}
 function normalizeObjectives(state){
  const players=state.players||[],allow24=players.length>3;
  state.version=GAME_VERSION;
@@ -538,12 +542,12 @@ function normalizeObjectives(state){
  return state;
 }
 function checkWinner(state){if(state.pendingConquestTransfer)return null;normalizeObjectives(state);const active=state.players.filter(p=>!p.eliminated);if(active.length===1)return active[0].id;for(const p of active)if(objectiveWinner(state,p))return p.id;return null;}
-function checkElims(state){for(const p of state.players){if(p.eliminated)continue;if(!TERRITORIES.some(t=>state.territories[t.id].owner===p.id)){p.eliminated=true;const h=state.hands[p.id]||[];state.discardPile.push(...h);state.hands[p.id]=[];state.log.push(`${p.name} foi eliminado da batalha.`);}}}
+function checkElims(state){const {territories:TERRITORIES,index:T,adj:ADJ}=mapRules(state);for(const p of state.players){if(p.eliminated)continue;if(!TERRITORIES.some(t=>state.territories[t.id].owner===p.id)){p.eliminated=true;const h=state.hands[p.id]||[];state.discardPile.push(...h);state.hands[p.id]=[];state.log.push(`${p.name} foi eliminado da batalha.`);}}}
 function stateSafeObjectivePool(players){return players.length>3?OBJECTIVE_POOL.slice():OBJECTIVE_POOL.filter(o=>o.type!=='territories');}
 function makeObjective(state,p,source){let pool=Array.isArray(source)&&source.length?source:OBJECTIVE_POOL.slice();if(!pool.length)pool=OBJECTIVE_POOL.slice();let o=structuredClone(pool[Math.floor(Math.random()*pool.length)]);if(o.type==='eliminate'){const targets=state.players.filter(x=>x.id!==p.id&&x.color);const target=targets[Math.floor(Math.random()*Math.max(1,targets.length))];o.targetColor=target?.color||'';o.text=o.text.replace('{COLOR}',target?.name||'Jogador');}return o;}
 function setLastAction(state,p,kind,data={}){if(!state)return null;const playerId=p?.id||p?.connId||null;state.lastAction={kind,byConnId:playerId,playerName:p?.name||'Jogador',ts:now(),...data};return state.lastAction;}
 function setTurnStartAction(state,p){if(p)setLastAction(state,p,'turnStart',{phase:state.phase});}
-function initGame(room){const settings=normalizeRoomSettings(room?.settings);if(settings.mode==='ranked'&&room.players.some(p=>p.isBot))throw new Error('Ranqueado não permite bots.');const players=room.players.map(p=>({...p,id:p.id,connId:p.id,eliminated:false,conqueredThisTurn:false}));const ids=shuffle(TERRITORIES.map(t=>t.id));const terr={};ids.forEach((tid,i)=>terr[tid]={owner:players[i%players.length].id,armies:1});const setup={};const start=STARTING_ARMIES[players.length]||20;for(const p of players){const owned=Object.values(terr).filter(x=>x.owner===p.id).length;setup[p.id]=Math.max(0,start-owned);}const objectivePool=stateSafeObjectivePool(players);const objectiveDeck=shuffle(objectivePool.slice());const objectives={};players.forEach((p,i)=>objectives[p.id]=makeObjective({players},p,[objectiveDeck[i%objectiveDeck.length]]));const state={version:GAME_VERSION,matchMode:settings.mode,roomId:room.id,roomName:room.name,maxPlayers:room.maxPlayers,hostConnId:room.hostConnId,settings,players,territories:terr,turnIndex:0,turnNumber:1,phase:'setup',setupRemaining:setup,reinforcementsRemaining:0,reinforcementStage:'free',continentBonusRemaining:{},pendingFreeReinforcements:0,objectives,deck:[],discardPile:[],hands:{},airAttackCards:{},airAttackPending:null,cardTradeCount:0,cardTradeStats:Object.fromEntries(players.map(p=>[p.id,{trades:0,lastReward:0,lastAt:0,airStored:0}])),usedFortifyTerritories:[],fortifyLockedTerritories:[],pendingConquestTransfer:null,lastAttackAt:{},lastCombat:null,lastAction:{kind:'turnStart',byConnId:players[0]?.id||null,playerName:players[0]?.name||'Jogador',phase:'setup',ts:now()},playerStats:Object.fromEntries(players.map(p=>[p.id,{conquests:0,armiesDestroyed:0}])),log:['Distribuição inicial iniciada.'],winner:null,annulled:false,finishedAt:null,resultRecorded:false,resultRecordError:null,startedAt:now(),updatedAt:now()};for(const p of players)state.hands[p.id]=[];state.deck=shuffle(TERRITORIES.map(t=>({id:`card_${t.id}`,territoryId:t.id,name:t.name,symbol:null})));return state;}
+function initGame(room){const {territories:TERRITORIES,index:T,adj:ADJ}=mapRules(room);const settings=normalizeRoomSettings(room?.settings);if(settings.mode==='ranked'&&room.players.some(p=>p.isBot))throw new Error('Ranqueado não permite bots.');const players=room.players.map(p=>({...p,id:p.id,connId:p.id,eliminated:false,conqueredThisTurn:false}));const ids=shuffle(TERRITORIES.map(t=>t.id));const terr={};ids.forEach((tid,i)=>terr[tid]={owner:players[i%players.length].id,armies:1});const setup={};const start=STARTING_ARMIES[players.length]||20;for(const p of players){const owned=Object.values(terr).filter(x=>x.owner===p.id).length;setup[p.id]=Math.max(0,start-owned);}const objectivePool=stateSafeObjectivePool(players);const objectiveDeck=shuffle(objectivePool.slice());const objectives={};players.forEach((p,i)=>objectives[p.id]=makeObjective({players},p,[objectiveDeck[i%objectiveDeck.length]]));const state={version:GAME_VERSION,matchMode:settings.mode,roomId:room.id,roomName:room.name,maxPlayers:room.maxPlayers,hostConnId:room.hostConnId,settings,players,territories:terr,turnIndex:0,turnNumber:1,phase:'setup',setupRemaining:setup,reinforcementsRemaining:0,reinforcementStage:'free',continentBonusRemaining:{},pendingFreeReinforcements:0,objectives,deck:[],discardPile:[],hands:{},airAttackCards:{},airAttackPending:null,cardTradeCount:0,cardTradeStats:Object.fromEntries(players.map(p=>[p.id,{trades:0,lastReward:0,lastAt:0,airStored:0}])),usedFortifyTerritories:[],fortifyLockedTerritories:[],pendingConquestTransfer:null,lastAttackAt:{},lastCombat:null,lastAction:{kind:'turnStart',byConnId:players[0]?.id||null,playerName:players[0]?.name||'Jogador',phase:'setup',ts:now()},playerStats:Object.fromEntries(players.map(p=>[p.id,{conquests:0,armiesDestroyed:0}])),log:['Distribuição inicial iniciada.'],winner:null,annulled:false,finishedAt:null,resultRecorded:false,resultRecordError:null,startedAt:now(),updatedAt:now()};for(const p of players)state.hands[p.id]=[];state.deck=shuffle(TERRITORIES.map(t=>({id:`card_${t.id}`,territoryId:t.id,name:t.name,symbol:null})));return state;}
 function drawCard(state,id){const hand=state.hands?.[id]||[];const rules=normalizeRoomSettings(state?.settings);if(rules.cardLimit!=='unlimited'&&hand.length>=5)return null;if(!state.deck.length){if(!state.discardPile.length)return null;state.deck=shuffle(state.discardPile.splice(0));}const c=state.deck.pop();const hasAir=Number(state.airAttackCards?.[id]||0)>0 || hand.some(x=>x.symbol===AIR);c.symbol=(rules.airAttackEnabled&&!hasAir&&Math.random()<0.20)?AIR:CARD_SYMBOLS[Math.floor(Math.random()*3)];state.hands[id]=hand;state.hands[id].push(c);return c;}
 function validSet(cards){if(cards.length!==3)return false;const s=cards.map(c=>c.symbol);return s.every(x=>x===s[0])||new Set(s).size===3;}
 function tradeValue(state){const n=Number(state.cardTradeCount||0);return n<6?TRADE_VALUES[n]:15+(n-5)*5;}
@@ -564,7 +568,7 @@ function endTurn(state){
 }
 function resolveAttackCombat(state,p,fromId,toId,requestedDice){
  const t=state.territories,from=t[fromId],to=t[toId];
- if(!validTerritoryId(fromId)||!validTerritoryId(toId)||!from||!to||from.owner!==p.id||to.owner===p.id||!adjacent(fromId,toId)||!Number.isSafeInteger(from.armies)||!Number.isSafeInteger(to.armies)||from.armies<2||to.armies<1)return null;
+ if(!validTerritoryId(fromId,state)||!validTerritoryId(toId,state)||!from||!to||from.owner!==p.id||to.owner===p.id||!adjacent(fromId,toId,state)||!Number.isSafeInteger(from.armies)||!Number.isSafeInteger(to.armies)||from.armies<2||to.armies<1)return null;
  const maxDice=Math.min(3,from.armies-1);
  let dice=maxDice;
  if(requestedDice!==undefined&&requestedDice!==null){const requested=strictPositiveInt(requestedDice);if(!requested||requested>maxDice)return null;dice=requested;}
@@ -578,7 +582,7 @@ function resolveAttackCombat(state,p,fromId,toId,requestedDice){
  return {fromId,toId,atkRolls:ar,defRolls:dr,atkLoss:al,defLoss:dl,conquered,dice,ts:now()};
 }
 
-function finalizeAirAttack(state){
+function finalizeAirAttack(state){const {territories:TERRITORIES,index:T,adj:ADJ}=mapRules(state);
  const pending=state?.airAttackPending;
  if(!pending)return null;
  const attacker=state.players?.find(p=>p.id===pending.attackerId);
@@ -606,7 +610,7 @@ function finalizeAirAttack(state){
  return state;
 }
 
-function applyAction(state,a,trustedAi=false){
+function applyAction(state,a,trustedAi=false){const {territories:TERRITORIES,index:T,adj:ADJ}=mapRules(state);
  if(!state||!isPlainObject(a)||state.winner||state.annulled||state.finishedAt||state.resultRecorded||state.airAttackPending)return null;
  const p=state.players?.[state.turnIndex];
  if(!p||p.id!==a.byConnId||p.eliminated||(p.abandoned&&!trustedAi)||(trustedAi&&!p.aiControlled))return null;
@@ -614,7 +618,7 @@ function applyAction(state,a,trustedAi=false){
  if(!t||!isPlainObject(t))return null;
 
  if(a.kind==='setupPlace'){
-  if(state.phase!=='setup'||!validTerritoryId(a.territoryId))return null;
+  if(state.phase!=='setup'||!validTerritoryId(a.territoryId,state))return null;
   const rem=Number(state.setupRemaining?.[p.id]||0),x=t[a.territoryId],n=strictPositiveInt(a.amount);
   if(!Number.isSafeInteger(rem)||rem<=0||!x||x.owner!==p.id||!Number.isSafeInteger(x.armies)||!n||n>rem)return null;
   x.armies+=n;state.setupRemaining[p.id]-=n;
@@ -623,7 +627,7 @@ function applyAction(state,a,trustedAi=false){
   return state;
  }
  if(a.kind==='reinforce'){
-  if(state.phase!=='reforco'||!validTerritoryId(a.territoryId))return null;
+  if(state.phase!=='reforco'||!validTerritoryId(a.territoryId,state))return null;
   ensureReinforcementState(state,p.id);
   const remaining=Number(state.reinforcementsRemaining||0),x=t[a.territoryId],n=strictPositiveInt(a.amount);
   if(!Number.isSafeInteger(remaining)||remaining<=0||!x||x.owner!==p.id||!Number.isSafeInteger(x.armies)||!n||n>remaining)return null;
@@ -645,9 +649,9 @@ function applyAction(state,a,trustedAi=false){
   state.phase='ataque';setLastAction(state,p,'phaseChange',{from:'reforco',to:'ataque'});return state;
  }
  if(a.kind==='attack'){
-  if(state.phase!=='ataque'||state.pendingConquestTransfer||!validTerritoryId(a.fromId)||!validTerritoryId(a.toId))return null;
+  if(state.phase!=='ataque'||state.pendingConquestTransfer||!validTerritoryId(a.fromId,state)||!validTerritoryId(a.toId,state))return null;
   const from=t[a.fromId],to=t[a.toId];
-  if(!from||!to||from.owner!==p.id||to.owner===p.id||!adjacent(a.fromId,a.toId)||!Number.isSafeInteger(from.armies)||!Number.isSafeInteger(to.armies)||from.armies<2||to.armies<1)return null;
+  if(!from||!to||from.owner!==p.id||to.owner===p.id||!adjacent(a.fromId,a.toId,state)||!Number.isSafeInteger(from.armies)||!Number.isSafeInteger(to.armies)||from.armies<2||to.armies<1)return null;
   const maxDice=Math.min(3,from.armies-1),requestedDice=strictPositiveInt(a.dice);
   if(!requestedDice||requestedDice>maxDice)return null;
   const last=Number(state.lastAttackAt?.[p.id]||0);if(now()-last<1000)return null;
@@ -660,13 +664,13 @@ function applyAction(state,a,trustedAi=false){
   checkElims(state);return state;
  }
  if(a.kind==='unitedAttack'){
-  if(state.phase!=='ataque'||state.pendingConquestTransfer||!validTerritoryId(a.toId))return null;
+  if(state.phase!=='ataque'||state.pendingConquestTransfer||!validTerritoryId(a.toId,state))return null;
   const targetId=a.toId,target=t[targetId],rawFromIds=Array.isArray(a.fromIds)?a.fromIds:[];
-  if(rawFromIds.some(id=>!validTerritoryId(id)))return null;
+  if(rawFromIds.some(id=>!validTerritoryId(id,state)))return null;
   const fromIds=[...new Set(rawFromIds)];
   if(!target||target.owner===p.id||!Number.isSafeInteger(target.armies)||target.armies<1||fromIds.length<2)return null;
   const last=Number(state.lastAttackAt?.[p.id]||0);if(now()-last<1000)return null;
-  for(const fromId of fromIds){const from=t[fromId];if(!from||from.owner!==p.id||!Number.isSafeInteger(from.armies)||from.armies<2||!adjacent(fromId,targetId))return null;}
+  for(const fromId of fromIds){const from=t[fromId];if(!from||from.owner!==p.id||!Number.isSafeInteger(from.armies)||from.armies<2||!adjacent(fromId,targetId,state))return null;}
   const totalAvailable=fromIds.reduce((sum,id)=>sum+Math.max(0,t[id].armies-1),0);if(totalAvailable<1)return null;
   const dice=Math.min(3,totalAvailable),defDice=Math.min(3,target.armies);if(defDice<1)return null;
   const atkRolls=roll(dice).sort((x,y)=>y-x),defRolls=roll(defDice).sort((x,y)=>y-x);
@@ -684,11 +688,11 @@ function applyAction(state,a,trustedAi=false){
   checkElims(state);return state;
  }
  if(a.kind==='conquestTransfer'){
-  if(state.phase!=='ataque'||!validTerritoryId(a.fromId)||!validTerritoryId(a.toId))return null;
+  if(state.phase!=='ataque'||!validTerritoryId(a.fromId,state)||!validTerritoryId(a.toId,state))return null;
   const q=state.pendingConquestTransfer;if(!q||q.fromId!==a.fromId||q.toId!==a.toId)return null;
   const to=t[q.toId];if(!to||to.owner!==p.id||!Number.isSafeInteger(to.armies))return null;
   const sourceIds=Array.isArray(q.fromIds)&&q.fromIds.length?[...new Set(q.fromIds)]:[q.fromId];
-  if(sourceIds[0]!==q.fromId||sourceIds.some(id=>!validTerritoryId(id)))return null;
+  if(sourceIds[0]!==q.fromId||sourceIds.some(id=>!validTerritoryId(id,state)))return null;
   for(const id of sourceIds){const from=t[id];if(!from||from.owner!==p.id||!Number.isSafeInteger(from.armies)||from.armies<1)return null;}
   const totalAvailable=sourceIds.reduce((sum,id)=>sum+Math.max(0,t[id].armies-1),0),max=Math.min(3,Number(q.maxTransfer)||1,totalAvailable),n=strictPositiveInt(a.amount);
   if(!Number.isSafeInteger(max)||max<1||!n||n>max)return null;
@@ -699,7 +703,7 @@ function applyAction(state,a,trustedAi=false){
   setLastAction(state,p,'conquestTransfer',{fromIds:sourceIds,toId:q.toId,amount:n,distribution});return state;
  }
  if(a.kind==='airAttack'){
-  if(!normalizeRoomSettings(state?.settings).airAttackEnabled||state.phase!=='ataque'||state.pendingConquestTransfer||state.airAttackPending||Number(state.airAttackCards?.[p.id]||0)<=0||!validTerritoryId(a.toId))return null;
+  if(!normalizeRoomSettings(state?.settings).airAttackEnabled||state.phase!=='ataque'||state.pendingConquestTransfer||state.airAttackPending||Number(state.airAttackCards?.[p.id]||0)<=0||!validTerritoryId(a.toId,state))return null;
   const to=t[a.toId];if(!to||to.owner===p.id||!Number.isSafeInteger(to.armies)||to.armies<1)return null;
   const last=Number(state.lastAttackAt?.[p.id]||0);if(now()-last<1000)return null;
   const destroyed=to.armies,fromId=TERRITORIES.find(x=>t[x.id].owner===p.id&&x.id!==a.toId)?.id||null;
@@ -711,9 +715,9 @@ function applyAction(state,a,trustedAi=false){
   state.phase='fortificacao';state.usedFortifyTerritories=[];state.fortifyLockedTerritories=[];setLastAction(state,p,'phaseChange',{from:'ataque',to:'fortificacao'});return state;
  }
  if(a.kind==='fortify'){
-  if(state.phase!=='fortificacao'||!validTerritoryId(a.fromId)||!validTerritoryId(a.toId))return null;
+  if(state.phase!=='fortificacao'||!validTerritoryId(a.fromId,state)||!validTerritoryId(a.toId,state))return null;
   const from=t[a.fromId],to=t[a.toId],n=strictPositiveInt(a.amount);
-  if(!from||!to||from.owner!==p.id||to.owner!==p.id||!adjacent(a.fromId,a.toId)||!Number.isSafeInteger(from.armies)||!Number.isSafeInteger(to.armies)||from.armies<2||!n||n>from.armies-1)return null;
+  if(!from||!to||from.owner!==p.id||to.owner!==p.id||!adjacent(a.fromId,a.toId,state)||!Number.isSafeInteger(from.armies)||!Number.isSafeInteger(to.armies)||from.armies<2||!n||n>from.armies-1)return null;
   const locked=state.fortifyLockedTerritories||[];if(locked.includes(a.fromId))return null;
   from.armies-=n;to.armies+=n;if(!locked.includes(a.toId))locked.push(a.toId);state.fortifyLockedTerritories=locked;setLastAction(state,p,'fortify',{fromId:a.fromId,toId:a.toId,amount:n});return state;
  }
@@ -818,7 +822,7 @@ function aiConquestOdds(attackers,defenders){
  const key=a+':'+d;if(aiOddsCache.has(key))return aiOddsCache.get(key);
  const result=aiDiceOutcomes(Math.min(3,a),Math.min(3,d)).reduce((sum,[al,dl,prob])=>sum+prob*aiConquestOdds(a-al,d-dl),0);aiOddsCache.set(key,result);return result;
 }
-function chooseAiAction(state,pid){
+function chooseAiAction(state,pid){const {territories:TERRITORIES,index:T,adj:ADJ}=mapRules(state);
  const p=state.players.find(x=>x.id===pid);if(!p||p.eliminated||!p.aiControlled||state.players[state.turnIndex]?.id!==pid||state.airAttackPending)return null;
  const t=state.territories,ownIds=Object.keys(t).filter(id=>t[id].owner===pid),objective=state.objectives?.[pid]||{};
  const enemies=id=>(ADJ[id]||[]).filter(x=>t[x]&&t[x].owner!==pid);
@@ -934,7 +938,34 @@ export class UORRoom {
   return safe;
  }
  broadcast(msg){for(const [uid,ws] of this.sockets.entries()){try{const entry=msg.entry||msg.payload?.entry;if(entry&&!entry.system&&this.personalMutes.get(uid)?.has(entry.userId))continue;const spectator=this.spectators.has(uid);let out=msg;if(msg?.state)out={...msg,state:this.gameStateForClient(msg.state,uid,spectator)};else if(msg?.payload?.state)out={...msg,payload:{...msg.payload,state:this.gameStateForClient(msg.payload.state,uid,spectator)}};const delivery=(this.socketSends.get(ws)||Promise.resolve()).then(()=>this.sendAuthenticated(uid,ws,out)).catch(()=>{try{ws.close(4003,'session_check_failed')}catch{}});this.socketSends.set(ws,delivery);this.state.waitUntil?.(delivery);}catch{}}}
- broadcastPresence(){const users=[...this.presenceUsers.values()].sort((a,b)=>a.nick.localeCompare(b.nick,'pt-BR',{sensitivity:'base'}));const raw=JSON.stringify({type:'presence_snapshot',users});for(const set of this.presenceSockets.values())for(const ws of set)try{ws.send(raw)}catch{}}
+ presenceSnapshotUsers(){return [...this.presenceUsers.values()].map(p=>({...p})).sort((a,b)=>a.nick.localeCompare(b.nick,'pt-BR',{sensitivity:'base'})||a.id.localeCompare(b.id));}
+ broadcastPresence(){
+  // Group nearby list changes only. Chat, invitations and match messages use their own immediate delivery.
+  if(this.presenceBroadcastTimer!=null)return;
+  const delivery=new Promise(resolve=>{
+   this.presenceBroadcastTimer=setTimeout(()=>{
+    this.presenceBroadcastTimer=null;
+    try{this.flushPresenceBroadcast();}catch(e){console.error('UOR presence list error',e);}finally{resolve();}
+   },100);
+  });
+  this.state.waitUntil?.(delivery);
+ }
+ flushPresenceBroadcast(){
+  const users=this.presenceSnapshotUsers();
+  // Compare visible fields only; refreshed heartbeat timestamps do not change the list.
+  const fingerprint=JSON.stringify(users.map(({lastSeenAt,...visible})=>visible));
+  if(fingerprint===this.presenceSnapshotFingerprint)return;
+  this.presenceSnapshotFingerprint=fingerprint;
+  const raw=JSON.stringify({type:'presence_snapshot',users});
+  for(const set of this.presenceSockets.values())for(const ws of set)try{ws.send(raw)}catch{}
+ }
+ touchLobbyPresence(uid,ws,message){
+  if(!this.presenceSockets.get(uid)?.has(ws))return;
+  const p=this.presenceUsers.get(uid);if(!p)return;
+  p.lastSeenAt=now();
+  const location=message?.location;
+  if((location==='lobby'||location==='game')&&location!==p.location){p.location=location;this.broadcastPresence();}
+ }
  async presenceSocketClosed(uid,ws){const set=this.presenceSockets.get(uid);if(!set||!set.has(ws))return;set.delete(ws);if(set.size===0){this.presenceSockets.delete(uid);this.presenceUsers.delete(uid);this.broadcastPresence();}}
  async serializedMutation(fn){const job=this.mutationTail.then(fn);this.mutationTail=job.catch(()=>{});return job;}
  async fetch(req){return this.serializedMutation(()=>this.fetchUnlocked(req));}
@@ -1094,7 +1125,7 @@ export class UORRoom {
    const uid=req.headers.get('x-uor-user');if(this.sockets.has(uid)||this.presenceSockets.has(uid)){const ids=await personalMuteIds(this.env,uid);this.personalMutes.set(uid,new Set(ids));const message=JSON.stringify({type:'personal_mutes_updated',ids});const ws=this.sockets.get(uid);if(ws)try{ws.send(message)}catch{}for(const socket of this.presenceSockets.get(uid)||[])try{socket.send(message)}catch{}}
    return json({ok:true});
   }
-  if(path==='/ws/lobby'){if(req.headers.get('Upgrade')!=='websocket')return new Response('WebSocket required',{status:426});await this.state.storage.put('lobbyChatCleanup',true);let nextCleanup=Number(await this.state.storage.get('lobbyChatNextCleanupAt')||0);if(nextCleanup<=now()){nextCleanup=now()+GLOBAL_CHAT_RESET_MS;await this.state.storage.put('lobbyChatNextCleanupAt',nextCleanup);}try{await this.state.storage.setAlarm(nextCleanup)}catch{}const uid=req.headers.get('x-uor-user');const nick=String(req.headers.get('x-uor-name')||'Jogador').slice(0,24);const color=String(req.headers.get('x-uor-color')||'crimson');if(!uid)return new Response('Unauthorized',{status:401});const st=await this.env.DB.prepare('SELECT points,role FROM user_stats s JOIN users u ON u.id=s.user_id WHERE s.user_id=?').bind(uid).first();const rankId=rankFor(Number(st?.points||0)).id;const role=normalizeRole(st?.role);const pair=new WebSocketPair(),client=pair[0],server=pair[1];server.accept();this.socketSessions.set(server,req.headers.get('x-uor-session-id'));this.personalMutes.set(uid,new Set(await personalMuteIds(this.env,uid)));let set=this.presenceSockets.get(uid);if(!set){set=new Set();this.presenceSockets.set(uid,set);}set.add(server);this.presenceUsers.set(uid,{id:uid,nick,color,rankId,role,available:(await this.state.storage.get('available:'+uid))!==false,location:'lobby',lastSeenAt:now()});server.addEventListener('message',e=>{if(!this.allowSocketMessage(server)||typeof e.data!=='string'||e.data.length>8192)return;const task=this.validateSocketSession(uid,server).then(valid=>{if(!valid)return;const p=this.presenceUsers.get(uid);if(p){let m={};try{m=JSON.parse(e.data)}catch{}p.lastSeenAt=now();if(m.location==='lobby'||m.location==='game')p.location=m.location;this.broadcastPresence();}}).catch(()=>{try{server.close(4003,'session_invalid')}catch{}});this.state.waitUntil?.(task);});server.addEventListener('close',()=>{this.presenceSocketClosed(uid,server)});server.addEventListener('error',()=>{this.presenceSocketClosed(uid,server)});server.send(JSON.stringify({type:'presence_snapshot',users:[...this.presenceUsers.values()].sort((a,b)=>a.nick.localeCompare(b.nick,'pt-BR',{sensitivity:'base'}))}));this.broadcastPresence();return new Response(null,{status:101,webSocket:client});}
+  if(path==='/ws/lobby'){if(req.headers.get('Upgrade')!=='websocket')return new Response('WebSocket required',{status:426});await this.state.storage.put('lobbyChatCleanup',true);let nextCleanup=Number(await this.state.storage.get('lobbyChatNextCleanupAt')||0);if(nextCleanup<=now()){nextCleanup=now()+GLOBAL_CHAT_RESET_MS;await this.state.storage.put('lobbyChatNextCleanupAt',nextCleanup);}try{await this.state.storage.setAlarm(nextCleanup)}catch{}const uid=req.headers.get('x-uor-user');const nick=String(req.headers.get('x-uor-name')||'Jogador').slice(0,24);const color=String(req.headers.get('x-uor-color')||'crimson');if(!uid)return new Response('Unauthorized',{status:401});const st=await this.env.DB.prepare('SELECT points,role FROM user_stats s JOIN users u ON u.id=s.user_id WHERE s.user_id=?').bind(uid).first();const rankId=rankFor(Number(st?.points||0)).id;const role=normalizeRole(st?.role);const pair=new WebSocketPair(),client=pair[0],server=pair[1];server.accept();this.socketSessions.set(server,req.headers.get('x-uor-session-id'));this.personalMutes.set(uid,new Set(await personalMuteIds(this.env,uid)));let set=this.presenceSockets.get(uid);if(!set){set=new Set();this.presenceSockets.set(uid,set);}set.add(server);this.presenceUsers.set(uid,{id:uid,nick,color,rankId,role,available:(await this.state.storage.get('available:'+uid))!==false,location:'lobby',lastSeenAt:now()});server.addEventListener('message',e=>{if(!this.allowSocketMessage(server)||typeof e.data!=='string'||e.data.length>8192)return;const task=this.validateSocketSession(uid,server).then(valid=>{if(!valid)return;let m={};try{m=JSON.parse(e.data)}catch{}this.touchLobbyPresence(uid,server,m);}).catch(()=>{try{server.close(4003,'session_invalid')}catch{}});this.state.waitUntil?.(task);});server.addEventListener('close',()=>{this.presenceSocketClosed(uid,server)});server.addEventListener('error',()=>{this.presenceSocketClosed(uid,server)});server.send(JSON.stringify({type:'presence_snapshot',users:this.presenceSnapshotUsers()}));this.broadcastPresence();return new Response(null,{status:101,webSocket:client});}
   if(path.endsWith('/internal/user-role-updated')){if(req.headers.get('x-uor-internal-key')!==String(this.env.UOR_ADMIN_KEY||''))return json({ok:false,error:'Internal key inválida.'},403);const actorId=req.headers.get('x-uor-user');const actor=actorId?await this.env.DB.prepare('SELECT id,role FROM users WHERE id=?').bind(actorId).first():null;if(!actor||!isStaffOrAdmin(actor))return json({ok:false,error:'Sem permissão.'},403);const b=await body(req),targetId=String(b.targetId||'').trim(),role=normalizeRole(b.role);if(this.room?.players)for(const p of this.room.players)if(p.id===targetId)p.role=role;if(this.game?.players)for(const p of this.game.players)if(p.id===targetId)p.role=role;if(this.room||this.game){await this.persist();if(this.room)this.broadcast({type:'room_state',room:await this.roomForPublic()});if(this.game)this.broadcast({type:'game_state_sync',state:this.game});}const presenceSet=this.presenceSockets.get(targetId);if(presenceSet)for(const ws of presenceSet)try{ws.send(JSON.stringify({type:'role_updated',role}));}catch{}const roomWs=this.sockets.get(targetId);if(roomWs)try{roomWs.send(JSON.stringify({type:'role_updated',role}));}catch{}if(!this.room&&!this.game){const u=this.presenceUsers.get(targetId);if(u)u.role=role;this.broadcastPresence();}return json({ok:true});}
   if(path.endsWith('/internal/moderation-event')){if(req.headers.get('x-uor-internal-key')!==String(this.env.UOR_ADMIN_KEY||''))return json({ok:false,error:'Internal key inválida.'},403);const actorId=req.headers.get('x-uor-user');const actor=actorId?await this.env.DB.prepare('SELECT id,role FROM users WHERE id=?').bind(actorId).first():null;if(!actor||!isStaffOrAdmin(actor))return json({ok:false,error:'Sem permissão.'},403);const b=await body(req);const targetId=String(b.targetId||'').trim();if(!targetId)return json({ok:false,error:'Jogador inválido.'},400);const targetNick=String(b.targetNick||'Jogador').slice(0,24);const kind=b.kind==='unmute'?'unmute':'mute';const text=kind==='mute'?`${targetNick} foi silenciado por 30 minutos.`:`O silêncio de ${targetNick} foi removido.`;this.broadcast({type:'room_relay',roomId:this.room?.id,payload:{type:'moderation_system',entry:{name:'Sistema',text,ts:now(),system:true}}});return json({ok:true});}
   if(path.endsWith('/internal/kick')){
@@ -1266,7 +1297,7 @@ export class UORRoom {
   if(!this.game?.airAttackPending||this.game.winner||this.game.annulled||this.game.resultRecorded)return false;
   const pending=this.game.airAttackPending;
   if(Number(pending.resolveAt||0)>now())return false;
-  if(!validTerritoryId(pending.toId)||!this.game.players?.some(p=>p.id===pending.attackerId)||!Number.isSafeInteger(Number(pending.destroyed))){this.game.airAttackPending=null;await this.persist();return false;}
+  if(!validTerritoryId(pending.toId,this.game)||!this.game.players?.some(p=>p.id===pending.attackerId)||!Number.isSafeInteger(Number(pending.destroyed))){this.game.airAttackPending=null;await this.persist();return false;}
   const candidate=structuredClone(this.game),resolved=finalizeAirAttack(candidate);if(!resolved)return false;
   candidate.winner=checkWinner(candidate);if(candidate.winner&&!candidate.finishedAt)candidate.finishedAt=now();
   if(candidate.winner&&!candidate.resultRecorded)await recordResults(this.env,candidate);
@@ -1307,7 +1338,7 @@ export class UORRoom {
   if(m.type==='air_attack_request'){
    if(!this.game)return;
    if(this.game.winner||this.game.annulled||this.game.finishedAt||this.game.resultRecorded){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_action_rejected',reason:'A partida já foi encerrada.'}}));return;}
-   if(!isPlainObject(m.action)||m.action.kind!=='airAttack'||!validTerritoryId(m.action.toId)){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_action_rejected',reason:'Ataque aéreo inválido.'}}));return;}
+   if(!isPlainObject(m.action)||m.action.kind!=='airAttack'||!validTerritoryId(m.action.toId,this.game)){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_action_rejected',reason:'Ataque aéreo inválido.'}}));return;}
    const rawImpact=m.action.visualImpactMs==null?6000:Number(m.action.visualImpactMs);
    if(!Number.isFinite(rawImpact)||rawImpact<0){ws.send(JSON.stringify({type:'room_relay',roomId:this.room.id,payload:{type:'game_action_rejected',reason:'Tempo visual do ataque aéreo inválido.'}}));return;}
    const a={...m.action,kind:'airAttack',byConnId:uid},candidate=structuredClone(this.game),next=applyAction(candidate,a);
