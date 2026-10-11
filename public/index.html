@@ -1779,7 +1779,7 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
 
   <!-- ============ CONTA UOR ============ -->
   <div id="accountScreen" class="screen">
-    <div id="uorVersion" aria-label="Versão do jogo">v2.10.5 · 29009</div>
+    <div id="uorVersion" aria-label="Versão do jogo">v2.10.6 · 29010</div>
     <div class="account-shell">
       <div id="accountAudioControls" role="group" aria-label="Som e volume">
         <button id="accountSoundToggle" type="button" title="Desligar som" aria-label="Desligar som" aria-pressed="false">🔊</button>
@@ -4292,7 +4292,8 @@ function updateBoardNodeReadability(node,t){
  const sh=81*Math.min(body.clientHeight,w*839/1536)/839,sw=sh*132/180;
  const labelTop=t.y-12,feet=labelTop-3/sy;
  const imageY=feet-t.y-sh*.86/sy;
- // The torso and counter share the country's printed-name center. Never shift sideways.
+ // SVG coordinates compensate the stretched board; use the full image box (no letterboxing).
+ // The torso and counter share the printed-name center; preserve the physical sprite aspect ratio.
  const markerX=sw*(.5-52/132)/sx;
  const anchor=[t.x,t.y+imageY+sh*99/180/sy];
  SOLDIER_POS[t.id]=anchor;
@@ -4300,7 +4301,7 @@ function updateBoardNodeReadability(node,t){
  if(ring){ring.setAttribute('cx',anchor[0]-t.x);ring.setAttribute('cy',anchor[1]-t.y);}
  if(effect)effect.setAttribute('transform',`translate(${anchor[0]-t.x},${anchor[1]-t.y})`);
  const sprite=node.querySelector('.uor-theme-soldier');
- if(sprite){sprite.setAttribute('x',markerX-sw/2/sx);sprite.setAttribute('y',imageY);sprite.setAttribute('width',sw/sx);sprite.setAttribute('height',sh/sy);sprite.setAttribute('preserveAspectRatio','xMidYMid meet');}
+ if(sprite){sprite.setAttribute('x',markerX-sw/2/sx);sprite.setAttribute('y',imageY);sprite.setAttribute('width',sw/sx);sprite.setAttribute('height',sh/sy);sprite.setAttribute('preserveAspectRatio','none');}
  const radius=Math.max(6,sh*.16);
  // The top of the helmet is at 5% of the sprite; keep a clear 3px gap below the counter.
  const bx=0,by=imageY+(sh*.04-radius-3)/sy;
