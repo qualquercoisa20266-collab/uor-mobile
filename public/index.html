@@ -1760,6 +1760,9 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
 #gameScreen.map-theme-board .board-country-label text{font-family:Arial,sans-serif;font-weight:700;fill:#10222b;stroke:none;letter-spacing:0}
 </style>
 <style id="uor-approved-board-layout">
+#gameScreen.map-theme-board .game-body{background:linear-gradient(to bottom,#ffe500 0 var(--board-headroom,0px),#08366c var(--board-headroom,0px) 100%)}
+#gameScreen.map-theme-board .map-wrap,#gameScreen.map-theme-board #mapSvg{overflow:visible}
+
 #gameScreen.map-theme-board .game-dock{bottom:4px;padding:4px 6px;gap:5px;max-width:none;width:calc(100% - 16px)}
 #gameScreen.map-theme-board .game-dock .dock-btn,#gameScreen.map-theme-board .game-dock .dice-dock-slot{height:clamp(54px,8vh,78px)!important;min-height:54px!important;font-size:clamp(12px,1.5vw,18px);line-height:1.1;padding:3px 4px;min-width:0}
 #gameScreen.map-theme-board .game-dock .dock-btn .dock-icon{width:clamp(22px,3.2vh,30px)!important;height:clamp(22px,3.2vh,30px)!important;line-height:clamp(22px,3.2vh,30px)!important;font-size:17px;flex-shrink:0}
@@ -1776,7 +1779,7 @@ html:has(body.uor-preview),body.uor-preview{width:100%;height:100%;overflow:hidd
 
   <!-- ============ CONTA UOR ============ -->
   <div id="accountScreen" class="screen">
-    <div id="uorVersion" aria-label="Versão do jogo">v2.10.4 · 29008</div>
+    <div id="uorVersion" aria-label="Versão do jogo">v2.10.5 · 29009</div>
     <div class="account-shell">
       <div id="accountAudioControls" role="group" aria-label="Som e volume">
         <button id="accountSoundToggle" type="button" title="Desligar som" aria-label="Desligar som" aria-pressed="false">🔊</button>
@@ -4272,8 +4275,12 @@ function fitBoardViewport(){const screen=$('#gameScreen'),wrap=screen?.querySele
  if(!screen.classList.contains('map-theme-board')){$('#mapSvg')?.setAttribute('viewBox','0 0 1536 839');for(const p of ['width','height','left','top'])wrap.style.removeProperty(p);return;}
  const body=screen.querySelector('.game-body'),dock=screen.querySelector('.game-dock'),w=body.clientWidth,h=body.clientHeight;if(!w||!h)return;
  const dockHeight=Math.max(52,dock?.offsetHeight||64)+10;
+ const markerHeight=81*Math.min(h,w*839/1536)/839,markerRadius=Math.max(6,markerHeight*.16);
+ const highestName=Math.min(...TERRITORIES.map(t=>t.y-12));
+ const headRoom=Math.ceil(Math.max(0,(markerHeight*.82+2*markerRadius+8-highestName*(h-dockHeight)/UOR_BOARD_CONFIG.height)/(1-highestName/UOR_BOARD_CONFIG.height)));
+ body.style.setProperty('--board-headroom',headRoom+'px');
  $('#mapSvg').setAttribute('viewBox','0 0 1536 '+UOR_BOARD_CONFIG.height);
- wrap.style.width=w+'px';wrap.style.height=Math.max(1,h-dockHeight)+'px';wrap.style.left='0px';wrap.style.top='0px';
+ wrap.style.width=w+'px';wrap.style.height=Math.max(1,h-dockHeight-headRoom)+'px';wrap.style.left='0px';wrap.style.top=headRoom+'px';
  screen.querySelectorAll('.terr-node').forEach(node=>updateBoardNodeReadability(node,T[node.dataset.id]));}
 window.addEventListener('resize',()=>requestAnimationFrame(fitBoardViewport));window.visualViewport?.addEventListener('resize',()=>requestAnimationFrame(fitBoardViewport));
 
@@ -4285,31 +4292,22 @@ function updateBoardNodeReadability(node,t){
  const sh=81*Math.min(body.clientHeight,w*839/1536)/839,sw=sh*132/180;
  const labelTop=t.y-12,feet=labelTop-3/sy;
  const imageY=feet-t.y-sh*.86/sy;
- const labels=TERRITORIES.map(v=>({id:v.id,left:(v.x-Math.max(22,v.name.length*4.5))*sx,right:(v.x+Math.max(22,v.name.length*4.5))*sx,top:(v.y-12)*sy,bottom:(v.y+12)*sy}));
- let shift=0,badgeSide=-1,best=Infinity;
- const hitLabel=(l,a)=>a.left<l.right&&a.right>l.left&&a.top<l.bottom&&a.bottom>l.top;
- for(const dx of [0,-15,15,-30,30,-45,45])for(const side of [-1,1]){
-  const cx=(t.x+dx)*sx,iy=(t.y+imageY)*sy,r=Math.max(7,sh*.19);
-  const art={left:cx-sw*.30,right:cx+sw*.35,top:iy+sh*.08,bottom:iy+sh*.87};
-  const bx=cx+side*sw*.33,by=feet*sy-sh*.42;
-  const badge={left:bx-r,right:bx+r,top:by-r,bottom:by+r};
-  const score=labels.reduce((n,l)=>n+(hitLabel(l,art)?1000:0)+(hitLabel(l,badge)?500:0),0)+Math.abs(dx)+(side===1?2:0);
-  if(score<best){best=score;shift=dx;badgeSide=side;}
- }
- // Keep each marker above its own name; small sideways offsets protect nearby text.
- const markerX=shift;
- const anchor=[t.x+markerX-sw*(.5-52/132)/sx,t.y+imageY+sh*99/180/sy];
+ // The torso and counter share the country's printed-name center. Never shift sideways.
+ const markerX=sw*(.5-52/132)/sx;
+ const anchor=[t.x,t.y+imageY+sh*99/180/sy];
  SOLDIER_POS[t.id]=anchor;
  const ring=node.querySelector('.selection-ring'),effect=node.querySelector('.combat-effect');
  if(ring){ring.setAttribute('cx',anchor[0]-t.x);ring.setAttribute('cy',anchor[1]-t.y);}
  if(effect)effect.setAttribute('transform',`translate(${anchor[0]-t.x},${anchor[1]-t.y})`);
  const sprite=node.querySelector('.uor-theme-soldier');
  if(sprite){sprite.setAttribute('x',markerX-sw/2/sx);sprite.setAttribute('y',imageY);sprite.setAttribute('width',sw/sx);sprite.setAttribute('height',sh/sy);sprite.setAttribute('preserveAspectRatio','xMidYMid meet');}
- const bx=markerX+badgeSide*(sw*.33)/sx,by=feet-t.y-sh*.42/sy;
+ const radius=Math.max(6,sh*.16);
+ // The top of the helmet is at 5% of the sprite; keep a clear 3px gap below the counter.
+ const bx=0,by=imageY+(sh*.04-radius-3)/sy;
  const badge=node.querySelector('.army-badge-bg'),count=node.querySelector('.terr-army');
- const radius=Math.max(7,sh*.19);
+
  if(badge){badge.setAttribute('cx',bx);badge.setAttribute('cy',by);badge.setAttribute('r',radius);badge.setAttribute('transform',`translate(${bx},${by}) scale(${1/sx},${1/sy}) translate(${-bx},${-by})`);badge.setAttribute('stroke-width','1.5');}
- if(count){count.setAttribute('x',bx);count.setAttribute('y',by);count.setAttribute('font-size',Math.max(10,sh*.26));count.setAttribute('transform',`translate(${bx},${by}) scale(${1/sx},${1/sy}) translate(${-bx},${-by})`);count.setAttribute('dy','.34em');}
+ if(count){count.setAttribute('x',bx);count.setAttribute('y',by);count.setAttribute('font-size',Math.max(10,sh*.22));count.setAttribute('transform',`translate(${bx},${by}) scale(${1/sx},${1/sy}) translate(${-bx},${-by})`);count.setAttribute('dy','.34em');}
  const hit=node.querySelector('.soldier-hit');if(hit){hit.setAttribute('x',markerX-Math.max(18,sw/2)/sx);hit.setAttribute('y',imageY);hit.setAttribute('width',Math.max(36,sw)/sx);hit.setAttribute('height',(sh+12)/sy);}
 }
 window.addEventListener('orientationchange',()=>requestAnimationFrame(fitBoardViewport));
