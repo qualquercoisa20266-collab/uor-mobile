@@ -57,7 +57,7 @@ async function apiDeleteAccount(req,env){
  return json({ok:true,deleted:true},200,{'set-cookie':clearCookie(COOKIE)});
 }
 
-const GAME_VERSION = '2.10.4';
+const GAME_VERSION = '2.10.5';
 const GLOBAL_CHAT_RESET_MS = 10*60*1000;
 const RECONNECT_GRACE_MS = 10*60*1000;
 const CONNECTION_WATCHDOG_MS = 15000;
